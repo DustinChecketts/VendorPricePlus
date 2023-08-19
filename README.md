@@ -20,4 +20,4 @@ Vendor Price Plus includes the core functionality of the popular Vendor Price ad
 - Create options commands and/or window to edit/enable/disable various tooltip customizations so players can personalize the addon to their liking
 - Merge functionality of this addon with my new addon, DesaturateTrash, that makes poor item quality items greyscale and easily identifiable as trash
 
-Updated, uploaded, and maintained (at least for now) by [StormtrooperTK421](https://discordapp.com/users/237746068844969994) on [GitHub](https://github.com/DustinChecketts/WideQuestLog_Plus). Please submit issues and I'll do my best to troubleshoot, replicate, and resolve issues as my limited abilities allow.
+Updated, uploaded, and maintained (at least for now) by [StormtrooperTK421](https://discordapp.com/users/237746068844969994) on [GitHub](https://github.com/DustinChecketts/VendorPricePlus). Please submit issues and I'll do my best to troubleshoot, replicate, and resolve issues as my limited abilities allow.
