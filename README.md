@@ -10,7 +10,7 @@ Vendor Price Plus includes the core functionality of the popular Vendor Price ad
 - Integrates seamlessly with the default Blizzard UI
 - Supports World of Warcraft: Classic Era 14.4.4 (Hardcore)
 
-<h4>Credits</h4>
+<h4>Acknowledgements</h4>
 
 -  The original [Vendor Price](https://www.curseforge.com/wow/addons/vendor-price) Addon by [Keytho17](https://legacy.curseforge.com/members/Ketho17/projects) and [Iceythe77](https://legacy.curseforge.com/members/icesythe77/projects)
 
