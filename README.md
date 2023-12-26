@@ -1,5 +1,5 @@
 # Vendor Price Plus
-A World of Warcraft: Classic addon that displays the vendor price and per unit price of items when not at a vendor.
+A World of Warcraft: Classic and Classic Era addon that displays the vendor price and per unit price of items when not at a vendor.
 
 Vendor Price Plus includes the core functionality of the popular Vendor Price addon by Ketho17 and adds a unit price in the same row. I have enjoyed the Vendor Price addon for several years, but I've alaways resorted to doing the per unit math in my head when listing items at the auction house. Similar addons create a lot of bulk to the item tooltip and I wanted something minimally invasive to the default UI.
 
