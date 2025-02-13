@@ -2,6 +2,12 @@
 VendorPricePlus = {}
 local VP = VendorPricePlus
 
+-- Cache frequently used WoW API functions
+local GetItemInfo, GetCoinTextureString, IsShiftKeyDown =
+      GetItemInfo, GetCoinTextureString, IsShiftKeyDown
+local hooksecurefunc, format, pairs, select = 
+      hooksecurefunc, string.format, pairs, select
+
 -- Map container IDs to inventory IDs
 local ContainerIDToInventoryID = ContainerIDToInventoryID or C_Container.ContainerIDToInventoryID
 
@@ -28,15 +34,13 @@ local FIRST_KEYRING_INVSLOT = 107
 -- Check if the tooltip owner is a merchant
 local function IsMerchant(tt)
     if MerchantFrame:IsShown() then
-        local name = tt:GetOwner():GetName()
-        if name then
-            return not (name:find("Character") or name:find("TradeSkill"))
-        end
+        local owner = tt:GetOwner()
+        return owner and not (owner:GetName():find("Character") or owner:GetName():find("TradeSkill"))
     end
 end
 
 -- Determine if the price should be shown in the tooltip
-local function ShouldShowPrice(tt, source)
+local function ShouldShowPrice(tt)
     return not IsMerchant(tt)
 end
 
@@ -65,8 +69,8 @@ GameTooltip:HookScript("OnHide", function()
 end)
 
 -- Set price information in the tooltip
-function VP:SetPrice(tt, hasWrathTooltip, source, count, item, isOnTooltipSetItem)
-    if ShouldShowPrice(tt, source) then
+function VP:SetPrice(tt, _, _, count, item, isOnTooltipSetItem)
+    if ShouldShowPrice(tt) then
         count = count or 1
         item = item or select(2, tt:GetItem())
         if item then
@@ -76,138 +80,47 @@ function VP:SetPrice(tt, hasWrathTooltip, source, count, item, isOnTooltipSetIte
                 local displayPrice = isShift and sellPrice or sellPrice * count
                 local unitPrice = sellPrice
 
-                -- Calculate and display unit price if count is 2 or greater
+                -- Display unit price if count >= 2
                 if count >= 2 then
                     unitPrice = isShift and sellPrice / count or sellPrice
                 end
 
-		local priceString
-		if count >= 2 then
-		    priceString = format("%s     @%s %s",
-			GetCoinTextureString(displayPrice),
-		        GetCoinTextureString(unitPrice),
-			"each"
-		    )
-		else
-		    priceString = format("%s",
-		        GetCoinTextureString(displayPrice)
-		    )
-		end
-
-                tt:AddLine(priceString, 1, 1, 1, false)
+                tt:AddLine(format("%s %s", GetCoinTextureString(displayPrice), count >= 2 and format("@%s each", GetCoinTextureString(unitPrice)) or ""), 1, 1, 1, false)
                 tt:Show()
             end
         end
     end
 end
 
-
 -- Define methods for setting price in various tooltips
 local SetItem = {
-	SetAction = function(tt, slot)
-		if GetActionInfo(slot) == "item" then
-			VP:SetPrice(tt, true, "SetAction", GetActionCount(slot))
-		end
-	end,
-	SetAuctionItem = function(tt, auctionType, index)
-		local _, _, count = GetAuctionItemInfo(auctionType, index)
-		VP:SetPrice(tt, false, "SetAuctionItem", count)
-	end,
-	SetAuctionSellItem = function(tt)
-		local _, _, count = GetAuctionSellItemInfo()
-		VP:SetPrice(tt, true, "SetAuctionSellItem", count)
-	end,
-	SetBagItem = function(tt, bag, slot)
-		local count
-		if GetContainerItemInfo then
-			count = select(2, GetContainerItemInfo(bag, slot))
-		else
-			local info = C_Container.GetContainerItemInfo(bag, slot)
-			if info then
-				count = info.stackCount
-			end
-		end
-		if count then
-			VP:SetPrice(tt, true, "SetBagItem", count)
-		end
-	end,
-	--SetBagItemChild
-	--SetBuybackItem -- already shown
-	--SetCompareItem
-	SetCraftItem = function(tt, index, reagent)
-		local _, _, count = GetCraftReagentInfo(index, reagent)
-		 -- otherwise returns an empty link
-		local itemLink = GetCraftReagentItemLink(index, reagent)
-		VP:SetPrice(tt, true, "SetCraftItem", count, itemLink)
-	end,
-	SetCraftSpell = function(tt)
-		VP:SetPrice(tt, true, "SetCraftSpell")
-	end,
-	--SetHyperlink -- item information is not readily available
-	SetInboxItem = function(tt, messageIndex, attachIndex)
-		local count, itemID
-		if attachIndex then
-			count = select(4, GetInboxItem(messageIndex, attachIndex))
-		else
-			count, itemID = select(14, GetInboxHeaderInfo(messageIndex))
-		end
-		VP:SetPrice(tt, false, "SetInboxItem", count, itemID)
-	end,
-	SetInventoryItem = function(tt, unit, slot)
-		local count
-		if not CharacterBags[slot] then
-			count = GetInventoryItemCount(unit, slot)
-		end
-		if slot < FIRST_KEYRING_INVSLOT then
-			VP:SetPrice(tt, VP:IsShown(BankFrame), "SetInventoryItem", count)
-		end
-	end,
-	--SetInventoryItemByID
-	--SetItemByID
-	SetLootItem = function(tt, slot)
-		local _, _, count = GetLootSlotInfo(slot)
-		VP:SetPrice(tt, false, "SetLootItem", count)
-	end,
-	SetLootRollItem = function(tt, rollID)
-		local _, _, count = GetLootRollItemInfo(rollID)
-		VP:SetPrice(tt, false, "SetLootRollItem", count)
-	end,
-	--SetMerchantCostItem -- alternate currency
-	--SetMerchantItem -- already shown
-	SetQuestItem = function(tt, questType, index)
-		local _, _, count = GetQuestItemInfo(questType, index)
-		VP:SetPrice(tt, false, "SetQuestItem", count)
-	end,
-	SetQuestLogItem = function(tt, _, index)
-		local _, _, count = GetQuestLogRewardInfo(index)
-		VP:SetPrice(tt, false, "SetQuestLogItem", count)
-	end,
-	--SetRecipeReagentItem -- retail
-	--SetRecipeResultItem -- retail
-	SetSendMailItem = function(tt, index)
-		local count = select(4, GetSendMailItem(index))
-		VP:SetPrice(tt, true, "SetSendMailItem", count)
-	end,
-	SetTradePlayerItem = function(tt, index)
-		local _, _, count = GetTradePlayerItemInfo(index)
-		VP:SetPrice(tt, true, "SetTradePlayerItem", count)
-	end,
-	SetTradeSkillItem = function(tt, index, reagent)
-		local count
-		if reagent then
-			count = select(3, GetTradeSkillReagentInfo(index, reagent))
-		else -- show minimum instead of maximum count
-			count = GetTradeSkillNumMade(index)
-		end
-		VP:SetPrice(tt, false, "SetTradeSkillItem", count)
-	end,
-	SetTradeTargetItem = function(tt, index)
-		local _, _, count = GetTradeTargetItemInfo(index)
-		VP:SetPrice(tt, false, "SetTradeTargetItem", count)
-	end,
-	SetTrainerService = function(tt, index)
-		VP:SetPrice(tt, true, "SetTrainerService")
-	end,
+    SetAction = function(tt, slot)
+        if GetActionInfo(slot) == "item" then
+            VP:SetPrice(tt, true, "SetAction", GetActionCount(slot))
+        end
+    end,
+    SetAuctionItem = function(tt, auctionType, index)
+        local _, _, count = GetAuctionItemInfo(auctionType, index)
+        VP:SetPrice(tt, false, "SetAuctionItem", count)
+    end,
+    SetBagItem = function(tt, bag, slot)
+        local count
+        local info = C_Container.GetContainerItemInfo and C_Container.GetContainerItemInfo(bag, slot)
+        if info then
+            count = info.stackCount
+        end
+        if count then
+            VP:SetPrice(tt, true, "SetBagItem", count)
+        end
+    end,
+    SetInventoryItem = function(tt, unit, slot)
+        if not CharacterBags[slot] then
+            local count = GetInventoryItemCount(unit, slot)
+            if slot < FIRST_KEYRING_INVSLOT then
+                VP:SetPrice(tt, VP:IsShown(BankFrame), "SetInventoryItem", count)
+            end
+        end
+    end,
 }
 
 -- Hook the SetItem methods to their respective tooltip events
