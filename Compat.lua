@@ -49,8 +49,8 @@ GameTooltip:HookScript("OnTooltipSetItem", function(tt)
 	elseif AtlasLoot and VP:IsShown(_G["AtlasLoot_GUI-Frame"]) then
 		SetPrice(tt)
 	else -- Chatter, Prat: check for active chat windows
-		local mouseFocus = GetMouseFocus()
-		if mouseFocus and mouseFocus:GetObjectType() == "FontString" then
+		local mouseFocus = tt:GetOwner()
+		if mouseFocus and mouseFocus.GetObjectType and mouseFocus:GetObjectType() == "FontString" then
 			for i = 1, FCF_GetNumActiveChatFrames() do
 				if _G["ChatFrame"..i]:IsMouseOver() then
 					SetPrice(tt)
