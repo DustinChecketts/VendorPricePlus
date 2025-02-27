@@ -8,7 +8,7 @@ Vendor Price Plus includes the core functionality of the popular Vendor Price ad
 - Lists the vendor price per unit in the item tooltip as Vendor
 - Lists the vendor stack price in the item tooltip as Stack
 - Integrates seamlessly with the default Blizzard UI
-- Plays nice with Auctionator and matches its neat tooltip format
+- Plays nice with [Auctionator](https://www.curseforge.com/wow/addons/auctionator) and matches its neat tooltip format
 
 <h4>Acknowledgements</h4>
 
