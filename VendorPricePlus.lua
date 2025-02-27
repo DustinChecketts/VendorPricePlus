@@ -3,59 +3,22 @@ VendorPricePlus = {}
 local VP = VendorPricePlus
 
 -- Cache frequently used WoW API functions
-local GetItemInfo, GetCoinTextureString, IsShiftKeyDown =
-      GetItemInfo, GetCoinTextureString, IsShiftKeyDown
-local hooksecurefunc, format, pairs, select = 
-      hooksecurefunc, string.format, pairs, select
-
--- Map container IDs to inventory IDs
-local ContainerIDToInventoryID = ContainerIDToInventoryID or C_Container.ContainerIDToInventoryID
+local GetItemInfo, IsShiftKeyDown, IsAddOnLoaded =
+      GetItemInfo, IsShiftKeyDown, IsAddOnLoaded
+local hooksecurefunc, format, pairs, select, max =
+      hooksecurefunc, string.format, pairs, select, math.max
 
 -- Constants
 local SELL_PRICE_TEXT = format("%s:", SELL_PRICE)
 local overridePrice
 
--- Identify character bags
-local CharacterBags = {}
-for i = CONTAINER_BAG_OFFSET + 1, 23 do
-    CharacterBags[i] = true
-end
-
--- Identify bank bags
-local firstBankBag = ContainerIDToInventoryID(NUM_BAG_SLOTS + 1)
-local lastBankBag = ContainerIDToInventoryID(NUM_BAG_SLOTS + NUM_BANKBAGSLOTS)
-for i = firstBankBag, lastBankBag do
-    CharacterBags[i] = true
-end
-
 -- First keyring inventory slot
 local FIRST_KEYRING_INVSLOT = 107
 
--- Check if the tooltip owner is a merchant
-local function IsMerchant(tt)
-    if MerchantFrame:IsShown() then
-        local owner = tt:GetOwner()
-        return owner and not (owner:GetName():find("Character") or owner:GetName():find("TradeSkill"))
-    end
-end
-
--- Determine if the price should be shown in the tooltip
-local function ShouldShowPrice(tt)
-    return not IsMerchant(tt)
-end
-
--- Check if the item is a recipe and should be priced
-local function CheckRecipe(tt, classID, isOnTooltipSetItem)
-    if classID == Enum.ItemClass.Recipe and isOnTooltipSetItem then
-        tt.isFirstMoneyLine = not tt.isFirstMoneyLine
-        return tt.isFirstMoneyLine
-    end
-end
-
--- Override SetTooltipMoney function to modify tooltip display on shift key press
+-- Override SetTooltipMoney function to modify tooltip display
 local _SetTooltipMoney = SetTooltipMoney
 function SetTooltipMoney(frame, money, ...)
-    if IsShiftKeyDown() and overridePrice then
+    if overridePrice then
         _SetTooltipMoney(frame, overridePrice, ...)
     else
         _SetTooltipMoney(frame, money, ...)
@@ -68,26 +31,59 @@ GameTooltip:HookScript("OnHide", function()
     overridePrice = nil
 end)
 
--- Set price information in the tooltip
+-- Function to format money values with precise alignment & 12x12 icons
+local function FormatMoneyWithIcons(amount)
+    local gold = floor(amount / (COPPER_PER_SILVER * SILVER_PER_GOLD))
+    local silver = floor((amount % (COPPER_PER_SILVER * SILVER_PER_GOLD)) / COPPER_PER_SILVER)
+    local copper = amount % COPPER_PER_SILVER
+
+    -- Ensure icons and numbers are perfectly aligned with Auctionator
+    local goldString = gold > 0 and format("%d |TInterface\\MoneyFrame\\UI-GoldIcon:12:12:0:0|t ", gold) or ""
+    local silverString = silver > 0 and format("%d |TInterface\\MoneyFrame\\UI-SilverIcon:12:12:0:0|t ", silver) or (gold > 0 and " 0 |TInterface\\MoneyFrame\\UI-SilverIcon:12:12:0:0|t " or "")
+    local copperString = copper > 0 and format("%d |TInterface\\MoneyFrame\\UI-CopperIcon:12:12:0:0|t", copper) or ((silver > 0 or gold > 0) and "00 |TInterface\\MoneyFrame\\UI-CopperIcon:12:12:0:0|t" or "")
+
+    return goldString .. silverString .. copperString
+end
+
 function VP:SetPrice(tt, _, _, count, item, isOnTooltipSetItem)
-    if ShouldShowPrice(tt) then
-        count = count or 1
-        item = item or select(2, tt:GetItem())
-        if item then
-            local sellPrice, classID = select(11, GetItemInfo(item))
-            if sellPrice and sellPrice > 0 and not CheckRecipe(tt, classID, isOnTooltipSetItem) then
-                local isShift = IsShiftKeyDown() and count > 1
-                local displayPrice = isShift and sellPrice or sellPrice * count
-                local unitPrice = sellPrice
+    count = count or 1
+    item = item or select(2, tt:GetItem())
 
-                -- Display unit price if count >= 2
+    if item then
+        local sellPrice = select(11, GetItemInfo(item))
+        if sellPrice and sellPrice > 0 then
+            local stackPrice = sellPrice * count
+            local unitPrice = sellPrice
+
+            -- Format the stack text: "Vendor xY" (light blue xY for consistency)
+            local stackText = count >= 2 and format("Vendor |cff88ccffx%d|r", count) or "Vendor"
+
+            if IsAddOnLoaded("Auctionator") then
+                -- Auctionator installed: Show only "Vendor xY"
                 if count >= 2 then
-                    unitPrice = isShift and sellPrice / count or sellPrice
+                    tt:AddDoubleLine(
+                        NORMAL_FONT_COLOR:WrapTextInColorCode(stackText),
+                        FormatMoneyWithIcons(stackPrice),
+                        1, 1, 1, 1, 1, 1
+                    )
                 end
-
-                tt:AddLine(format("%s %s", GetCoinTextureString(displayPrice), count >= 2 and format("@%s each", GetCoinTextureString(unitPrice)) or ""), 1, 1, 1, false)
-                tt:Show()
+            else
+                -- Normal behavior: Show "Vendor" for unit price and "Vendor xY" for stack price
+                tt:AddDoubleLine(
+                    NORMAL_FONT_COLOR:WrapTextInColorCode("Vendor"),
+                    FormatMoneyWithIcons(unitPrice),
+                    1, 1, 1, 1, 1, 1
+                )
+                if count >= 2 then
+                    tt:AddDoubleLine(
+                        NORMAL_FONT_COLOR:WrapTextInColorCode(stackText),
+                        FormatMoneyWithIcons(stackPrice),
+                        1, 1, 1, 1, 1, 1
+                    )
+                end
             end
+
+            tt:Show()
         end
     end
 end
@@ -114,11 +110,9 @@ local SetItem = {
         end
     end,
     SetInventoryItem = function(tt, unit, slot)
-        if not CharacterBags[slot] then
-            local count = GetInventoryItemCount(unit, slot)
-            if slot < FIRST_KEYRING_INVSLOT then
-                VP:SetPrice(tt, VP:IsShown(BankFrame), "SetInventoryItem", count)
-            end
+        local count = GetInventoryItemCount(unit, slot)
+        if slot < FIRST_KEYRING_INVSLOT then
+            VP:SetPrice(tt, true, "SetInventoryItem", count)
         end
     end,
 }
@@ -132,8 +126,8 @@ end
 ItemRefTooltip:HookScript("OnTooltipSetItem", function(tt)
     local item = select(2, tt:GetItem())
     if item then
-        local sellPrice, classID = select(11, GetItemInfo(item))
-        if sellPrice and sellPrice > 0 and not CheckRecipe(tt, classID, true) then
+        local sellPrice = select(11, GetItemInfo(item))
+        if sellPrice and sellPrice > 0 then
             SetTooltipMoney(tt, sellPrice, nil, SELL_PRICE_TEXT)
         end
     end
