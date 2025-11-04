@@ -1,6 +1,6 @@
-## Interface: 11507
+## Interface: 11508
 ## Title: VendorPricePlus
-## Version: 1.0.9
+## Version: 1.0.10
 ## Author: StormtrooperTK421 (Ketho, Icesythe7)
 ## Notes: Displays the Vendor price and Stack price of items when not at a vendor
 ## DefaultState: enabled
@@ -8,3 +8,4 @@
 
 VendorPricePlus.lua
 Compat.lua
+
