@@ -3,10 +3,15 @@ VendorPricePlus = {}
 local VP = VendorPricePlus
 
 -- Cache frequently used WoW API functions
-local GetItemInfo, IsShiftKeyDown, IsAddOnLoaded =
-      GetItemInfo, IsShiftKeyDown, IsAddOnLoaded
+local GetItemInfo, IsShiftKeyDown =
+      GetItemInfo, IsShiftKeyDown
 local hooksecurefunc, format, pairs, select, max =
       hooksecurefunc, string.format, pairs, select, math.max
+
+-- Safely check if Auctionator is loaded (cross-version compatible)
+local function IsAuctionatorLoaded()
+    return C_AddOns and C_AddOns.IsAddOnLoaded and C_AddOns.IsAddOnLoaded("Auctionator")
+end
 
 -- Constants
 local SELL_PRICE_TEXT = format("%s:", SELL_PRICE)
@@ -58,7 +63,7 @@ function VP:SetPrice(tt, _, _, count, item, isOnTooltipSetItem)
             -- Format the stack text: "Vendor xY" (light blue xY for consistency)
             local stackText = count >= 2 and format("Vendor |cff88ccffx%d|r", count) or "Vendor"
 
-            if IsAddOnLoaded("Auctionator") then
+            if IsAuctionatorLoaded() then
                 -- Auctionator installed: Show only "Vendor xY"
                 if count >= 2 then
                     tt:AddDoubleLine(
