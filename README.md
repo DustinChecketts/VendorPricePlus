@@ -16,7 +16,6 @@ Vendor Price Plus includes the core functionality of the popular Vendor Price ad
 
 <h4>Known Issues / To-Do</h4>
 
-- Test with ElvUI, Masque, and various other popular UI frameworks
 - Create options commands and/or window to edit/enable/disable various tooltip customizations so players can personalize the addon to their liking
 - Merge functionality with another of my addons, [GreyVendorTrash](https://www.curseforge.com/wow/addons/grey-vendor-trash), that makes poor item quality items greyscale and easily identifiable as trash
 
