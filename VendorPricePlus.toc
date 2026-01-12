@@ -8,5 +8,3 @@
 
 VendorPricePlus.lua
 Compat.lua
-
-
