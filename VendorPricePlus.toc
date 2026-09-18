@@ -1,4 +1,4 @@
-## Interface: 20506, 11509
+## Interface: 20506, 11509, 16001
 ## Title: VendorPricePlus
 ## Version: 1.1.3
 ## Author: StormtrooperTK421 (Ketho, Icesythe7)
