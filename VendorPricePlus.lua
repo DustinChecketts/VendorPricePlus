@@ -33,9 +33,11 @@ function SetTooltipMoney(frame, money, ...)
 end
 
 -- Clear overridePrice on tooltip hide
-GameTooltip:HookScript("OnHide", function()
-    overridePrice = nil
-end)
+if GameTooltip and GameTooltip.HasScript and GameTooltip:HasScript("OnHide") then
+    GameTooltip:HookScript("OnHide", function()
+        overridePrice = nil
+    end)
+end
 
 -- Function to format money values with precise alignment & 12x12 icons
 local function FormatMoneyWithIcons(amount)
@@ -162,12 +164,24 @@ local function OnEnterQuestReward(self)
     end
 end
 
+local function SafeHookScript(frame, scriptName, callback)
+    if not frame or type(frame.HookScript) ~= "function" then
+        return false
+    end
+    if frame.HasScript and not frame:HasScript(scriptName) then
+        return false
+    end
+    frame:HookScript(scriptName, callback)
+    return true
+end
+
 hooksecurefunc("QuestInfo_Display", function()
     for i = 1, MAX_NUM_ITEMS do
         local button = QuestInfoRewardsFrame and QuestInfoRewardsFrame["QuestInfoItem" .. i]
         if button and not button.__VendorPricePlusHooked then
-            button:HookScript("OnEnter", OnEnterQuestReward)
-            button.__VendorPricePlusHooked = true
+            if SafeHookScript(button, "OnEnter", OnEnterQuestReward) then
+                button.__VendorPricePlusHooked = true
+            end
         end
     end
 end)
