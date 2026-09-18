@@ -186,6 +186,99 @@ if Compat.IsForever() and ItemLocation and ItemLocation.CreateFromEquipmentSlot 
     end
 end
 
+-- Forever tooltip diagnostics.
+-- Temporary test instrumentation: /vppdiag toggles logging. While enabled,
+-- hover an item in each problem context (Mail, Buyback, Quest rewards, etc.).
+-- We hook only tooltip methods that actually exist and print the method name,
+-- arguments, owner, and resolved item without changing tooltip behavior.
+if Compat.IsForever() then
+    local diagEnabled = false
+    local diagLast = {}
+
+    local function DiagValue(value)
+        local valueType = type(value)
+        if valueType == "string" or valueType == "number" or valueType == "boolean" or value == nil then
+            return tostring(value)
+        end
+        return "<" .. valueType .. ">"
+    end
+
+    local function DiagOwner(tt)
+        local owner = tt.GetOwner and tt:GetOwner()
+        if not owner then
+            return "nil"
+        end
+        if owner.GetName then
+            local name = owner:GetName()
+            if name then return name end
+        end
+        return tostring(owner)
+    end
+
+    local function Diag(method, tt, ...)
+        if not diagEnabled then return end
+
+        local itemName, itemLink
+        if tt.GetItem then
+            itemName, itemLink = tt:GetItem()
+        end
+
+        local args = {}
+        for i = 1, select("#", ...) do
+            args[#args + 1] = DiagValue(select(i, ...))
+        end
+
+        local line = format(
+            "|cff88ccffVPP DIAG|r %s owner=%s item=%s args=[%s]",
+            method,
+            DiagOwner(tt),
+            itemLink or itemName or "nil",
+            table.concat(args, ", ")
+        )
+
+        -- Avoid identical spam while the same tooltip is refreshed repeatedly.
+        if diagLast[method] ~= line then
+            diagLast[method] = line
+            print(line)
+        end
+    end
+
+    local diagnosticMethods = {
+        "SetAction",
+        "SetBagItem",
+        "SetBuybackItem",
+        "SetHyperlink",
+        "SetInboxItem",
+        "SetInventoryItem",
+        "SetItemByID",
+        "SetItemByItemLocation",
+        "SetLootItem",
+        "SetLootRollItem",
+        "SetMerchantItem",
+        "SetQuestItem",
+        "SetQuestLogItem",
+        "SetSendMailItem",
+        "SetTradePlayerItem",
+        "SetTradeSkillItem",
+        "SetTradeTargetItem",
+    }
+
+    for _, method in ipairs(diagnosticMethods) do
+        if type(GameTooltip[method]) == "function" then
+            hooksecurefunc(GameTooltip, method, function(tt, ...)
+                Diag(method, tt, ...)
+            end)
+        end
+    end
+
+    SLASH_VENDORPRICEPLUSDIAG1 = "/vppdiag"
+    SlashCmdList.VENDORPRICEPLUSDIAG = function()
+        diagEnabled = not diagEnabled
+        wipe(diagLast)
+        print("VendorPricePlus diagnostics: " .. (diagEnabled and "|cff00ff00ON|r" or "|cffff0000OFF|r"))
+    end
+end
+
 -- ItemRef tooltip support
 if ItemRefTooltip and ItemRefTooltip.HasScript and ItemRefTooltip:HasScript("OnTooltipSetItem") then
     ItemRefTooltip:HookScript("OnTooltipSetItem", function(tt)
