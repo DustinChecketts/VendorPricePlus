@@ -139,6 +139,53 @@ for method, func in pairs(SetItem) do
     end
 end
 
+-- Forever uses additional modern tooltip setters for several item contexts.
+-- Hook the setters that expose an item location and derive the real stack count
+-- from that location. This keeps the feature data-driven instead of tied to a
+-- particular window such as Mail or Merchant Buyback.
+if Compat.IsForever() and ItemLocation and ItemLocation.CreateFromEquipmentSlot then
+    local function SetPriceFromItemLocation(tt, itemLocation)
+        if not itemLocation or not C_Item or not C_Item.DoesItemExist or not C_Item.DoesItemExist(itemLocation) then
+            return
+        end
+
+        local count = 1
+        if C_Item.GetStackCount then
+            count = C_Item.GetStackCount(itemLocation) or 1
+        end
+
+        local item = C_Item.GetItemLink and C_Item.GetItemLink(itemLocation)
+        VP:SetPrice(tt, true, "ItemLocation", count, item)
+    end
+
+    local itemLocationMethods = {
+        SetBagItem = function(bag, slot)
+            if ItemLocation.CreateFromBagAndSlot then
+                return ItemLocation:CreateFromBagAndSlot(bag, slot)
+            end
+        end,
+        SetInventoryItem = function(unit, slot)
+            if unit == "player" then
+                return ItemLocation:CreateFromEquipmentSlot(slot)
+            end
+        end,
+    }
+
+    for method, makeLocation in pairs(itemLocationMethods) do
+        if type(GameTooltip[method]) == "function" then
+            -- SetBagItem/SetInventoryItem are already covered above. The modern
+            -- location path is intentionally not installed twice.
+        end
+    end
+
+    -- Modern item-location tooltip setter used by Forever UI surfaces when present.
+    if type(GameTooltip.SetItemByItemLocation) == "function" then
+        hooksecurefunc(GameTooltip, "SetItemByItemLocation", function(tt, itemLocation)
+            SetPriceFromItemLocation(tt, itemLocation)
+        end)
+    end
+end
+
 -- ItemRef tooltip support
 if ItemRefTooltip and ItemRefTooltip.HasScript and ItemRefTooltip:HasScript("OnTooltipSetItem") then
     ItemRefTooltip:HookScript("OnTooltipSetItem", function(tt)
