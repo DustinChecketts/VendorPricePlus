@@ -56,7 +56,7 @@ function VP:SetPrice(tt, _, _, count, item)
     item = item or select(2, tt:GetItem())
 
     if item then
-        local sellPrice = select(11, GetItemInfo(item))
+        local sellPrice = select(11, Compat.GetItemInfo(item))
         if sellPrice and sellPrice > 0 then
             local stackPrice = sellPrice * count
             local unitPrice = sellPrice
@@ -103,7 +103,7 @@ local SetItem = {
         VP:SetPrice(tt, false, "SetAuctionItem", count)
     end,
     SetBagItem = function(tt, bag, slot)
-        local info = C_Container.GetContainerItemInfo and C_Container.GetContainerItemInfo(bag, slot)
+        local info = Compat.GetContainerItemInfo(bag, slot)
         if info and info.stackCount then
             VP:SetPrice(tt, true, "SetBagItem", info.stackCount)
         end
@@ -123,7 +123,7 @@ end
 ItemRefTooltip:HookScript("OnTooltipSetItem", function(tt)
     local item = select(2, tt:GetItem())
     if item then
-        local sellPrice = select(11, GetItemInfo(item))
+        local sellPrice = select(11, Compat.GetItemInfo(item))
         if sellPrice and sellPrice > 0 then
             SetTooltipMoney(tt, sellPrice, nil, SELL_PRICE_TEXT)
         end
