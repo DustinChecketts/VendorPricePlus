@@ -1,16 +1,17 @@
 -- Initialize VendorPricePlus table
-VendorPricePlus = {}
+VendorPricePlus = VendorPricePlus or {}
 local VP = VendorPricePlus
 
 -- Cache frequently used WoW API functions
-local GetItemInfo, IsShiftKeyDown =
-      GetItemInfo, IsShiftKeyDown
+local IsShiftKeyDown = IsShiftKeyDown
 local hooksecurefunc, format, pairs, select, max =
       hooksecurefunc, string.format, pairs, select, math.max
 
+local Compat = VP.Compat
+
 -- Safely check if Auctionator is loaded (cross-version compatible)
 local function IsAuctionatorLoaded()
-    return C_AddOns and C_AddOns.IsAddOnLoaded and C_AddOns.IsAddOnLoaded("Auctionator")
+    return Compat.IsAddOnLoaded("Auctionator")
 end
 
 -- Constants
@@ -60,6 +61,21 @@ function VP:SetPrice(tt, _, _, count, item)
         if sellPrice and sellPrice > 0 then
             local stackPrice = sellPrice * count
             local unitPrice = sellPrice
+
+            -- Forever already displays Blizzard's Sell Price for the whole stack.
+            -- Leave that native line alone and add only the missing per-unit value.
+            -- A single item is already unambiguous, so it gets no extra line.
+            if Compat.IsForever() then
+                if count >= 2 then
+                    tt:AddDoubleLine(
+                        NORMAL_FONT_COLOR:WrapTextInColorCode("Each"),
+                        FormatMoneyWithIcons(unitPrice),
+                        1, 1, 1, 1, 1, 1
+                    )
+                    tt:Show()
+                end
+                return
+            end
 
             local stackText = count >= 2 and format("Vendor |cff88ccffx%d|r", count) or "Vendor"
 
