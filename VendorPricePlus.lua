@@ -132,19 +132,23 @@ local SetItem = {
 }
 
 for method, func in pairs(SetItem) do
-    hooksecurefunc(GameTooltip, method, func)
+    if type(GameTooltip[method]) == "function" then
+        hooksecurefunc(GameTooltip, method, func)
+    end
 end
 
 -- ItemRef tooltip support
-ItemRefTooltip:HookScript("OnTooltipSetItem", function(tt)
-    local item = select(2, tt:GetItem())
-    if item then
-        local sellPrice = select(11, Compat.GetItemInfo(item))
-        if sellPrice and sellPrice > 0 then
-            SetTooltipMoney(tt, sellPrice, nil, SELL_PRICE_TEXT)
+if ItemRefTooltip and ItemRefTooltip.HasScript and ItemRefTooltip:HasScript("OnTooltipSetItem") then
+    ItemRefTooltip:HookScript("OnTooltipSetItem", function(tt)
+        local item = select(2, tt:GetItem())
+        if item then
+            local sellPrice = select(11, Compat.GetItemInfo(item))
+            if sellPrice and sellPrice > 0 then
+                SetTooltipMoney(tt, sellPrice, nil, SELL_PRICE_TEXT)
+            end
         end
-    end
-end)
+    end)
+end
 
 --------------------------------------------------------------------------------
 -- Quest reward tooltip support (FIXED for DF-style UI)
@@ -169,20 +173,19 @@ hooksecurefunc("QuestInfo_Display", function()
 end)
 
 -- Tooltip fallback using GetOwner() (DF-safe)
-GameTooltip:HookScript("OnTooltipSetItem", function(tt)
-    local _, itemLink = tt:GetItem()
-    if not itemLink then return end
+if GameTooltip.HasScript and GameTooltip:HasScript("OnTooltipSetItem") then
+    GameTooltip:HookScript("OnTooltipSetItem", function(tt)
+        local _, itemLink = tt:GetItem()
+        if not itemLink then return end
 
-    local owner = tt:GetOwner()
-    if not owner then return end
+        local owner = tt:GetOwner()
+        if not owner then return end
 
-    local parent = owner:GetParent()
-    local parentName = parent and parent:GetName()
+        local parent = owner:GetParent()
+        local parentName = parent and parent:GetName()
 
-    if parentName and parentName:match("^QuestInfoRewardsFrame") then
-        VP:SetPrice(tt, false, "QuestRewardFallback", owner.count or 1, itemLink)
-
-        -- Optional debug output (safe to remove after verification)
-        -- print("VendorPricePlus: quest reward tooltip hooked:", parentName)
-    end
-end)
+        if parentName and parentName:match("^QuestInfoRewardsFrame") then
+            VP:SetPrice(tt, false, "QuestRewardFallback", owner.count or 1, itemLink)
+        end
+    end)
+end
