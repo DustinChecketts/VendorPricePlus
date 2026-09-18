@@ -279,6 +279,28 @@ if Compat.IsForever() then
     end
 end
 
+-- Forever context hooks discovered through /vppdiag.
+-- Mail and Buyback use dedicated setters rather than the bag-item path.
+if Compat.IsForever() then
+    if type(GameTooltip.SetSendMailItem) == "function" then
+        hooksecurefunc(GameTooltip, "SetSendMailItem", function(tt, attachmentIndex)
+            local name, _, count = GetSendMailItem(attachmentIndex)
+            if name then
+                VP:SetPrice(tt, true, "SetSendMailItem", count or 1)
+            end
+        end)
+    end
+
+    if type(GameTooltip.SetBuybackItem) == "function" then
+        hooksecurefunc(GameTooltip, "SetBuybackItem", function(tt, buybackIndex)
+            local name, _, price, count = GetBuybackItemInfo(buybackIndex)
+            if name then
+                VP:SetPrice(tt, true, "SetBuybackItem", count or 1)
+            end
+        end)
+    end
+end
+
 -- ItemRef tooltip support
 if ItemRefTooltip and ItemRefTooltip.HasScript and ItemRefTooltip:HasScript("OnTooltipSetItem") then
     ItemRefTooltip:HookScript("OnTooltipSetItem", function(tt)
