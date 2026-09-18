@@ -6,6 +6,6 @@
 ## DefaultState: enabled
 ## X-Curse-Project-ID: 904486
 
-VendorPricePlus.lua
 Compat.lua
+VendorPricePlus.lua
 Integrations.lua
