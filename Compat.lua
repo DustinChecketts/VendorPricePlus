@@ -57,3 +57,14 @@ function Compat.IsAddOnLoaded(addonName)
 
     return false
 end
+
+-- WoW Forever currently reports the Mainline project ID, so do not use
+-- WOW_PROJECT_ID alone to distinguish it from Retail. Its interface generation
+-- is 16000-series (currently 16001), while Retail is not.
+function Compat.IsForever()
+    local interfaceVersion = select(4, GetBuildInfo())
+    return WOW_PROJECT_ID == WOW_PROJECT_MAINLINE
+        and type(interfaceVersion) == "number"
+        and interfaceVersion >= 16000
+        and interfaceVersion < 17000
+end
