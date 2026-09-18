@@ -28,7 +28,7 @@ local Auctioneer = {
     end,
 }
 
-GameTooltip:HookScript("OnTooltipSetItem", function(tt)
+local function OnIntegrationTooltipSetItem(tt)
     if AucAdvanced and VP:IsShown(AuctionFrame) then
         for frame, func in pairs(Auctioneer) do
             if VP:IsShown(_G[frame]) then
@@ -59,4 +59,8 @@ GameTooltip:HookScript("OnTooltipSetItem", function(tt)
             end
         end
     end
-end)
+end
+
+if GameTooltip and GameTooltip.HasScript and GameTooltip:HasScript("OnTooltipSetItem") then
+    GameTooltip:HookScript("OnTooltipSetItem", OnIntegrationTooltipSetItem)
+end
