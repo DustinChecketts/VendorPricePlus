@@ -20,3 +20,8 @@ Vendor Price Plus includes the core functionality of the popular Vendor Price ad
 - Merge functionality with another of my addons, [GreyVendorTrash](https://www.curseforge.com/wow/addons/grey-vendor-trash), that makes poor item quality items greyscale and easily identifiable as trash
 
 Updated, uploaded, and maintained (at least for now) by [StormtrooperTK421](https://discordapp.com/users/237746068844969994) on [GitHub](https://github.com/DustinChecketts/VendorPricePlus). Please submit issues and I'll do my best to troubleshoot, replicate, and resolve issues as my limited abilities allow.
+
+
+<h4>Development</h4>
+
+Vendor Price Plus is authored, maintained, and published by StormtrooperTK421. Development and modernization work is performed with assistance from OpenAI's ChatGPT, including code implementation, compatibility work, testing support, and documentation.
