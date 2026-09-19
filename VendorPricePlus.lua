@@ -400,13 +400,10 @@ if Compat.IsForever() and TooltipDataProcessor and TooltipDataProcessor.AddToolt
             return
         end
 
-        -- Forever quest item buttons omit Sell Price entirely. Guaranteed
-        -- rewards use type "reward"; selectable rewards use type "choice".
-        -- Handle both while retaining the objectType guard so unrelated tooltip
-        -- owners do not enter the quest-reward path.
-        local isQuestReward = owner.objectType == "item"
-            and (owner.type == "reward" or owner.type == "choice")
-        if isQuestReward then
+        -- Guaranteed quest reward buttons expose stable reward metadata here.
+        -- Selectable quest choices are also handled by the direct quest-button
+        -- hook below because their Forever owner metadata differs.
+        if owner.type == "reward" and owner.objectType == "item" then
             if not VP:IsContextEnabled("questRewards") then return end
             local count = tonumber(owner.count) or 1
             local sellPrice = select(11, Compat.GetItemInfo(item))
@@ -446,12 +443,50 @@ end
 -- Quest reward tooltip support (FIXED for DF-style UI)
 --------------------------------------------------------------------------------
 
--- Direct quest reward button hook
+-- Direct quest reward button hook. This path is important on Forever because
+-- selectable quest choices do not expose the same modern tooltip-owner metadata
+-- as guaranteed rewards.
 local function OnEnterQuestReward(self)
     local link = self.itemLink or (self.GetID and GetQuestItemLink(self.type, self:GetID()))
-    if link then
-        VP:SetPrice(GameTooltip, false, "QuestReward", self.count or 1, link)
+    if not link then return end
+
+    if Compat.IsForever() then
+        if not VP:IsContextEnabled("questRewards") then return end
+
+        -- Guaranteed rewards may already have been handled by the modern
+        -- tooltip post-call above. Do not add a duplicate Sell Price row.
+        local tooltipName = GameTooltip.GetName and GameTooltip:GetName()
+        if tooltipName and GameTooltip.NumLines then
+            for i = 1, GameTooltip:NumLines() do
+                local left = _G[tooltipName .. "TextLeft" .. i]
+                local text = left and left:GetText()
+                if text and text:find(SELL_PRICE_TEXT, 1, true) == 1 then
+                    return
+                end
+            end
+        end
+
+        local count = tonumber(self.count) or 1
+        local sellPrice = select(11, Compat.GetItemInfo(link))
+        if sellPrice and sellPrice > 0 then
+            GameTooltip:AddDoubleLine(
+                NORMAL_FONT_COLOR:WrapTextInColorCode(SELL_PRICE_TEXT),
+                FormatMoneyWithIcons(sellPrice * count),
+                1, 1, 1, 1, 1, 1
+            )
+            if count >= 2 then
+                GameTooltip:AddDoubleLine(
+                    "Unit Price:",
+                    FormatMoneyWithIcons(sellPrice),
+                    1, 1, 1, 1, 1, 1
+                )
+            end
+            GameTooltip:Show()
+        end
+        return
     end
+
+    VP:SetPrice(GameTooltip, false, "QuestReward", self.count or 1, link)
 end
 
 local function SafeHookScript(frame, scriptName, callback)
