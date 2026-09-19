@@ -1,0 +1,32 @@
+name: Package and release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    env:
+      # The repository secret keeps the CurseForge token out of source control.
+      CF_API_TOKEN: ${{ secrets.CF_API_KEY }}
+      # GitHub supplies this token automatically for creating the GitHub release.
+      GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    steps:
+      - name: Check out release tag
+        # Pinned to the reviewed actions/checkout v5 commit.
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          fetch-depth: 0
+
+      - name: Package and publish
+        # BigWigs Packager v2.6.1 adds explicit WoW Forever (16xxx) support.
+        # Pinning the commit prevents a moving action tag from changing our
+        # publishing code without review.
+        uses: BigWigsMods/packager@e50a250f8705041e40f2fa1ddcb280a686d65aa0

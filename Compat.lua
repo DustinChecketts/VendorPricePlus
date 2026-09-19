@@ -1,62 +1,70 @@
+-- VendorPricePlus client/API compatibility layer
+--
+-- Keep differences between WoW client API surfaces here so feature code can
+-- remain client-agnostic. Prefer capability detection over project IDs.
+
+VendorPricePlus = VendorPricePlus or {}
 local VP = VendorPricePlus
 
-local function SetPrice(tt, count, item)
-	VP:SetPrice(tt, false, "Compat", count, item, true)
+VP.Compat = VP.Compat or {}
+local Compat = VP.Compat
+
+function Compat.GetItemInfo(item)
+    if C_Item and C_Item.GetItemInfo then
+        return C_Item.GetItemInfo(item)
+    end
+
+    if GetItemInfo then
+        return GetItemInfo(item)
+    end
 end
 
-function VP:IsShown(frame)
-	return frame and frame:IsVisible() and frame:IsMouseOver()
+function Compat.GetContainerItemInfo(bag, slot)
+    if C_Container and C_Container.GetContainerItemInfo then
+        return C_Container.GetContainerItemInfo(bag, slot)
+    end
+
+    if GetContainerItemInfo then
+        local texture, stackCount, locked, quality, readable, lootable, itemLink,
+              isFiltered, noValue, itemID, isBound = GetContainerItemInfo(bag, slot)
+
+        if texture then
+            return {
+                iconFileID = texture,
+                stackCount = stackCount,
+                isLocked = locked,
+                quality = quality,
+                isReadable = readable,
+                hasLoot = lootable,
+                hyperlink = itemLink,
+                isFiltered = isFiltered,
+                hasNoValue = noValue,
+                itemID = itemID,
+                isBound = isBound,
+            }
+        end
+    end
 end
 
-local Auctioneer = {
-	AucAdvAppraiserFrame = function(tt)
-		local itemID = select(2, tt:GetItem()):match("item:(%d+)")
-		for _, v in pairs(AucAdvAppraiserFrame.list) do
-			if v[1] == itemID then
-				SetPrice(tt, v[6])
-				break
-			end
-		end
-	end,
-	AucAdvSearchUiAuctionFrame = function(tt)
-		local row = tt:GetOwner():GetID()
-		local count = AucAdvanced.Modules.Util.SearchUI.Private.gui.sheet.rows[row][4]
-		SetPrice(tt, tonumber(count:GetText()))
-	end,
-	AucAdvSimpFrame = function(tt)
-		SetPrice(tt, AucAdvSimpFrame.detail[1])
-	end,
-}
+function Compat.IsAddOnLoaded(addonName)
+    if C_AddOns and C_AddOns.IsAddOnLoaded then
+        return C_AddOns.IsAddOnLoaded(addonName)
+    end
 
-GameTooltip:HookScript("OnTooltipSetItem", function(tt)
-	if AucAdvanced and VP:IsShown(AuctionFrame) then
-		for frame, func in pairs(Auctioneer) do
-			if VP:IsShown(_G[frame]) then
-				func(tt)
-				break
-			end
-		end
-	elseif AuctionFaster and VP:IsShown(AuctionFrame) and AuctionFrame.selectedTab >= 4 then
-		local count
-		if AuctionFrame.selectedTab == 4 then -- sell
-			local item = tt:GetOwner().item
-			count = item and item.count
-		elseif AuctionFrame.selectedTab == 5 then -- buy
-			local hoverRowData = AuctionFaster.hoverRowData
-			count = hoverRowData and hoverRowData.count -- provided by AuctionFaster
-		end
-		SetPrice(tt, count)
-	elseif AtlasLoot and VP:IsShown(_G["AtlasLoot_GUI-Frame"]) then
-		SetPrice(tt)
-	else -- Chatter, Prat: check for active chat windows
-		local mouseFocus = tt:GetOwner()
-		if mouseFocus and mouseFocus.GetObjectType and mouseFocus:GetObjectType() == "FontString" then
-			for i = 1, FCF_GetNumActiveChatFrames() do
-				if _G["ChatFrame"..i]:IsMouseOver() then
-					SetPrice(tt)
-					break
-				end
-			end
-		end
-	end
-end)
+    if IsAddOnLoaded then
+        return IsAddOnLoaded(addonName)
+    end
+
+    return false
+end
+
+-- WoW Forever currently reports the Mainline project ID, so do not use
+-- WOW_PROJECT_ID alone to distinguish it from Retail. Its interface generation
+-- is 16000-series (currently 16001), while Retail is not.
+function Compat.IsForever()
+    local interfaceVersion = select(4, GetBuildInfo())
+    return WOW_PROJECT_ID == WOW_PROJECT_MAINLINE
+        and type(interfaceVersion) == "number"
+        and interfaceVersion >= 16000
+        and interfaceVersion < 17000
+end
