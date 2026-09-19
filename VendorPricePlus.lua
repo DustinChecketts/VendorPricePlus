@@ -228,10 +228,20 @@ if Compat.IsForever() then
             args[#args + 1] = DiagValue(select(i, ...))
         end
 
+        local owner = tt.GetOwner and tt:GetOwner()
+        local ownerName = DiagOwner(tt)
+        local ownerType = owner and owner.GetObjectType and owner:GetObjectType() or "nil"
+        local ownerID = owner and owner.GetID and owner:GetID() or "nil"
+        local parent = owner and owner.GetParent and owner:GetParent()
+        local parentName = parent and parent.GetName and parent:GetName() or "nil"
+
         local line = format(
-            "|cff88ccffVPP DIAG|r %s owner=%s item=%s args=[%s]",
+            "|cff88ccffVPP DIAG|r %s owner=%s type=%s id=%s parent=%s item=%s args=[%s]",
             method,
-            DiagOwner(tt),
+            ownerName,
+            tostring(ownerType),
+            tostring(ownerID),
+            tostring(parentName),
             itemLink or itemName or "nil",
             table.concat(args, ", ")
         )
@@ -269,6 +279,18 @@ if Compat.IsForever() then
                 Diag(method, tt, ...)
             end)
         end
+    end
+
+    -- Some Forever UI surfaces build tooltips through the modern tooltip-data
+    -- pipeline without calling a public GameTooltip setter. Log those item
+    -- post-calls too, including the tooltip owner/button that requested them.
+    if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall
+        and Enum and Enum.TooltipDataType and Enum.TooltipDataType.Item then
+        TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Item, function(tt, data)
+            if not diagEnabled then return end
+            local dataID = data and (data.id or data.itemID or data.guid)
+            Diag("TooltipDataProcessor.Item", tt, dataID)
+        end)
     end
 
     SLASH_VENDORPRICEPLUSDIAG1 = "/vppdiag"
