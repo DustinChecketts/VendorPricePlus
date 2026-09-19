@@ -74,14 +74,13 @@ local function FormatForeverSellPriceRow(tt, sellPrice)
             right:SetText(FormatMoneyWithIcons(sellPrice))
             right:Show()
 
-            local labelWidth = left:GetStringWidth() or 0
-            local valueWidth = right:GetStringWidth() or 0
-            local rightEdge = 10 + labelWidth + 10 + valueWidth
-
+            -- Forever can mark tooltip geometry as secret/protected, especially
+            -- for action-bar item tooltips. Never perform arithmetic on measured
+            -- FontString widths here; use Blizzard's normal right column instead.
             right:ClearAllPoints()
-            right:SetPoint("RIGHT", tt, "LEFT", rightEdge, 0)
+            right:SetPoint("RIGHT", tt, "RIGHT", -10, 0)
 
-            return left, right, rightEdge
+            return left, right
         end
     end
 end
@@ -95,8 +94,8 @@ local function CompactForeverPriceRows(tt, stackPrice, unitPrice)
     local tooltipName = tt.GetName and tt:GetName()
     if not tooltipName or not tt.NumLines then return false end
 
-    local sellLeft, sellRight, rightEdge = FormatForeverSellPriceRow(tt, stackPrice)
-    if not (sellLeft and sellRight and rightEdge) then
+    local sellLeft, sellRight = FormatForeverSellPriceRow(tt, stackPrice)
+    if not (sellLeft and sellRight) then
         return false
     end
 
@@ -116,15 +115,13 @@ local function CompactForeverPriceRows(tt, stackPrice, unitPrice)
 
     unitLeft:SetTextColor(NORMAL_FONT_COLOR.r, NORMAL_FONT_COLOR.g, NORMAL_FONT_COLOR.b)
 
-    -- Recalculate the shared column using whichever label/value pair is widest.
-    local labelWidth = max(sellLeft:GetStringWidth() or 0, unitLeft:GetStringWidth() or 0)
-    local valueWidth = max(sellRight:GetStringWidth() or 0, unitRight:GetStringWidth() or 0)
-    rightEdge = 10 + labelWidth + 10 + valueWidth
-
+    -- Keep both values in Blizzard's normal right column. Do not inspect or
+    -- calculate from FontString geometry: Forever may protect those measurements
+    -- as secret values on secure tooltip paths such as action-bar items.
     sellRight:ClearAllPoints()
-    sellRight:SetPoint("RIGHT", tt, "LEFT", rightEdge, 0)
+    sellRight:SetPoint("RIGHT", tt, "RIGHT", -10, 0)
     unitRight:ClearAllPoints()
-    unitRight:SetPoint("RIGHT", tt, "LEFT", rightEdge, 0)
+    unitRight:SetPoint("RIGHT", tt, "RIGHT", -10, 0)
 
     return true
 end
@@ -403,8 +400,17 @@ if Compat.IsForever() and TooltipDataProcessor and TooltipDataProcessor.AddToolt
             return
         end
 
-        -- Forever quest reward buttons omit Sell Price entirely. Supply it.
-        if owner.type == "reward" and owner.objectType == "item" then
+        -- Forever's Map & Quest Log exposes both guaranteed rewards and
+        -- selectable choices through GetQuestLogItem. The tooltip owner tells us
+        -- which kind of quest item button it is. Handle both here because the
+        -- older QuestInfo APIs are not populated while viewing MapQuestInfo.
+        local info = tt.GetProcessingTooltipInfo and tt:GetProcessingTooltipInfo()
+        local getterName = info and info.getterName
+        local isQuestReward = owner.objectType == "item"
+            and (owner.type == "reward" or owner.type == "choice")
+            and (getterName == "GetQuestLogItem" or getterName == "GetQuestItem")
+
+        if isQuestReward then
             if not VP:IsContextEnabled("questRewards") then return end
             local count = tonumber(owner.count) or 1
             local sellPrice = select(11, Compat.GetItemInfo(item))
@@ -423,6 +429,7 @@ if Compat.IsForever() and TooltipDataProcessor and TooltipDataProcessor.AddToolt
                 end
                 tt:Show()
             end
+            return
         end
     end)
 end
@@ -444,8 +451,12 @@ end
 -- Quest reward tooltip support (FIXED for DF-style UI)
 --------------------------------------------------------------------------------
 
--- Direct quest reward button hook
+-- Direct quest reward button hook for the legacy quest UI used by supported
+-- Classic clients. Forever's Map & Quest Log is handled by the modern tooltip
+-- post-call above.
 local function OnEnterQuestReward(self)
+    if Compat.IsForever() then return end
+
     local link = self.itemLink or (self.GetID and GetQuestItemLink(self.type, self:GetID()))
     if link then
         VP:SetPrice(GameTooltip, false, "QuestReward", self.count or 1, link)
