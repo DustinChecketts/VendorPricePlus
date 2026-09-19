@@ -339,6 +339,54 @@ if Compat.IsForever() then
     end
 end
 
+-- Forever modern tooltip contexts that do not use legacy tooltip setters.
+if Compat.IsForever() and TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall
+    and Enum and Enum.TooltipDataType and Enum.TooltipDataType.Item then
+    TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Item, function(tt, data)
+        local owner = tt.GetOwner and tt:GetOwner()
+        if not owner then return end
+
+        local item = select(2, tt:GetItem())
+        if not item then
+            local itemID = data and (data.id or data.itemID)
+            item = itemID
+        end
+        if not item then return end
+
+        -- Profession reagent buttons expose the recipe-required quantity through
+        -- itemContextMatchResult (confirmed in Forever). Blizzard's Sell Price
+        -- is the value of that required quantity, so add the per-unit value.
+        if owner.buttonContext == "ButtonContext_ProfessionsReagentButton" then
+            local count = tonumber(owner.itemContextMatchResult) or tonumber(owner.count) or 1
+            if count >= 2 then
+                VP:SetPrice(tt, true, "ProfessionReagent", count, item)
+            end
+            return
+        end
+
+        -- Forever quest reward buttons omit Sell Price entirely. Supply it.
+        if owner.type == "reward" and owner.objectType == "item" then
+            local count = tonumber(owner.count) or 1
+            local sellPrice = select(11, Compat.GetItemInfo(item))
+            if sellPrice and sellPrice > 0 then
+                tt:AddDoubleLine(
+                    NORMAL_FONT_COLOR:WrapTextInColorCode(SELL_PRICE_TEXT),
+                    FormatMoneyWithIcons(sellPrice * count),
+                    1, 1, 1, 1, 1, 1
+                )
+                if count >= 2 then
+                    tt:AddDoubleLine(
+                        NORMAL_FONT_COLOR:WrapTextInColorCode("Each"),
+                        FormatMoneyWithIcons(sellPrice),
+                        1, 1, 1, 1, 1, 1
+                    )
+                end
+                tt:Show()
+            end
+        end
+    end)
+end
+
 -- ItemRef tooltip support
 if ItemRefTooltip and ItemRefTooltip.HasScript and ItemRefTooltip:HasScript("OnTooltipSetItem") then
     ItemRefTooltip:HookScript("OnTooltipSetItem", function(tt)
