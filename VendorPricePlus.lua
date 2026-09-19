@@ -289,7 +289,23 @@ if Compat.IsForever() then
         TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Item, function(tt, data)
             if not diagEnabled then return end
             local dataID = data and (data.id or data.itemID or data.guid)
+
+            local owner = tt.GetOwner and tt:GetOwner()
+            local ownerText = {}
+            if owner then
+                for key, value in pairs(owner) do
+                    local valueType = type(value)
+                    if valueType == "string" or valueType == "number" or valueType == "boolean" then
+                        ownerText[#ownerText + 1] = tostring(key) .. "=" .. tostring(value)
+                    end
+                end
+                table.sort(ownerText)
+            end
+
             Diag("TooltipDataProcessor.Item", tt, dataID)
+            if #ownerText > 0 then
+                print("|cff88ccffVPP OWNER|r " .. table.concat(ownerText, " "))
+            end
         end)
     end
 
