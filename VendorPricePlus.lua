@@ -55,6 +55,37 @@ local function FormatMoneyWithIcons(amount)
     return goldString .. silverString .. copperString
 end
 
+-- Normalize Blizzard's native Forever Sell Price row into the same visual
+-- language VPP uses for stacked items: gold label on the left and money in a
+-- compact, right-aligned value column. This also applies to single-item prices
+-- so vendor values do not change presentation based on stack size.
+local function FormatForeverSellPriceRow(tt, sellPrice)
+    local tooltipName = tt.GetName and tt:GetName()
+    if not tooltipName or not tt.NumLines then return nil end
+
+    for i = 1, tt:NumLines() do
+        local left = _G[tooltipName .. "TextLeft" .. i]
+        local right = _G[tooltipName .. "TextRight" .. i]
+        local text = left and left:GetText()
+
+        if text and text:find(SELL_PRICE_TEXT, 1, true) == 1 and right then
+            left:SetText(SELL_PRICE_TEXT)
+            left:SetTextColor(NORMAL_FONT_COLOR.r, NORMAL_FONT_COLOR.g, NORMAL_FONT_COLOR.b)
+            right:SetText(FormatMoneyWithIcons(sellPrice))
+            right:Show()
+
+            local labelWidth = left:GetStringWidth() or 0
+            local valueWidth = right:GetStringWidth() or 0
+            local rightEdge = 10 + labelWidth + 10 + valueWidth
+
+            right:ClearAllPoints()
+            right:SetPoint("RIGHT", tt, "LEFT", rightEdge, 0)
+
+            return left, right, rightEdge
+        end
+    end
+end
+
 -- Compact Forever price rows into a small two-column table.
 -- Blizzard writes Sell Price as one left-aligned string. For stack contexts we
 -- split that native line into the existing left/right FontStrings, then align
@@ -64,33 +95,31 @@ local function CompactForeverPriceRows(tt, stackPrice, unitPrice)
     local tooltipName = tt.GetName and tt:GetName()
     if not tooltipName or not tt.NumLines then return false end
 
-    local sellLeft, sellRight, unitLeft, unitRight
-    for i = 1, tt:NumLines() do
-        local left = _G[tooltipName .. "TextLeft" .. i]
-        local right = _G[tooltipName .. "TextRight" .. i]
-        local text = left and left:GetText()
-
-        if text and text:find(SELL_PRICE_TEXT, 1, true) == 1 then
-            sellLeft, sellRight = left, right
-        elseif text == "Unit Price:" then
-            unitLeft, unitRight = left, right
-        end
-    end
-
-    if not (sellLeft and sellRight and unitLeft and unitRight) then
+    local sellLeft, sellRight, rightEdge = FormatForeverSellPriceRow(tt, stackPrice)
+    if not (sellLeft and sellRight and rightEdge) then
         return false
     end
 
-    sellLeft:SetText(SELL_PRICE_TEXT)
-    sellLeft:SetTextColor(NORMAL_FONT_COLOR.r, NORMAL_FONT_COLOR.g, NORMAL_FONT_COLOR.b)
-    unitLeft:SetTextColor(NORMAL_FONT_COLOR.r, NORMAL_FONT_COLOR.g, NORMAL_FONT_COLOR.b)
-    sellRight:SetText(FormatMoneyWithIcons(stackPrice))
-    sellRight:Show()
+    local unitLeft, unitRight
+    for i = 1, tt:NumLines() do
+        local left = _G[tooltipName .. "TextLeft" .. i]
+        local right = _G[tooltipName .. "TextRight" .. i]
+        if left and left:GetText() == "Unit Price:" then
+            unitLeft, unitRight = left, right
+            break
+        end
+    end
 
-    -- Keep the value column close to the labels while preserving right alignment.
+    if not (unitLeft and unitRight) then
+        return false
+    end
+
+    unitLeft:SetTextColor(NORMAL_FONT_COLOR.r, NORMAL_FONT_COLOR.g, NORMAL_FONT_COLOR.b)
+
+    -- Recalculate the shared column using whichever label/value pair is widest.
     local labelWidth = max(sellLeft:GetStringWidth() or 0, unitLeft:GetStringWidth() or 0)
     local valueWidth = max(sellRight:GetStringWidth() or 0, unitRight:GetStringWidth() or 0)
-    local rightEdge = 10 + labelWidth + 10 + valueWidth
+    rightEdge = 10 + labelWidth + 10 + valueWidth
 
     sellRight:ClearAllPoints()
     sellRight:SetPoint("RIGHT", tt, "LEFT", rightEdge, 0)
@@ -98,6 +127,101 @@ local function CompactForeverPriceRows(tt, stackPrice, unitPrice)
     unitRight:SetPoint("RIGHT", tt, "LEFT", rightEdge, 0)
 
     return true
+end
+-- Forever's modern tooltip pipeline exposes Sell Price as its own typed line.
+-- A line post-call runs immediately after Blizzard renders that line but before
+-- the following footer/help lines are rendered. Adding Unit Price here keeps the
+-- two price rows together without moving or rewriting Blizzard's later rows.
+--
+-- This is intentionally Forever-only. Older supported clients continue through
+-- the established SetPrice hooks below.
+if Compat.IsForever()
+    and TooltipDataProcessor
+    and TooltipDataProcessor.AddLinePostCall
+    and Enum
+    and Enum.TooltipDataLineType
+    and Enum.TooltipDataLineType.SellPrice then
+
+    local function GetForeverContextKey(tt)
+        -- The modern tooltip handler retains the C_TooltipInfo getter that built
+        -- the current tooltip. Prefer that stable API context over frame names.
+        local info = tt.GetProcessingTooltipInfo and tt:GetProcessingTooltipInfo()
+        local getterName = info and info.getterName
+
+        if getterName then
+            if getterName == "GetSendMailItem" or getterName == "GetInboxItem" then
+                return "mail"
+            elseif getterName == "GetBuybackItem" or getterName == "GetMerchantItem" then
+                return "merchant"
+            elseif getterName == "GetRecipeReagentItem" then
+                return "professions"
+            elseif getterName == "GetQuestItem" or getterName == "GetQuestLogItem" then
+                return "questRewards"
+            elseif getterName == "GetBagItem"
+                or getterName == "GetBagItemChild"
+                or getterName == "GetInventoryItem" then
+                return "inventoryBank"
+            end
+        end
+
+        -- Profession reagent buttons have useful owner metadata in Forever even
+        -- when the tooltip getter is not exposed by name.
+        local owner = tt.GetOwner and tt:GetOwner()
+        if owner and owner.buttonContext == "ButtonContext_ProfessionsReagentButton" then
+            return "professions"
+        end
+
+        -- Unknown item surfaces keep the historical default behavior. The
+        -- stack-price comparison below still prevents an unnecessary Unit Price
+        -- line when Blizzard is already displaying a single-item value.
+        return nil
+    end
+
+    TooltipDataProcessor.AddLinePostCall(Enum.TooltipDataLineType.SellPrice, function(tt, lineData)
+        if not tt or not lineData then return end
+
+        local contextKey = GetForeverContextKey(tt)
+        if contextKey and not VP:IsContextEnabled(contextKey) then
+            return
+        end
+
+        local info = tt.GetProcessingTooltipInfo and tt:GetProcessingTooltipInfo()
+        local tooltipData = info and info.tooltipData
+        local item = tooltipData and (tooltipData.hyperlink or tooltipData.id)
+
+        if not item and type(tt.GetItem) == "function" then
+            item = select(2, tt:GetItem())
+        end
+        if not item then return end
+
+        local unitPrice = select(11, Compat.GetItemInfo(item))
+        local stackPrice = tonumber(lineData.price)
+
+        if not unitPrice or unitPrice <= 0 or not stackPrice or stackPrice <= 0 then
+            return
+        end
+
+        -- Always normalize the native Sell Price row, including single items.
+        -- This gives Forever tooltips one consistent vendor-price presentation.
+        FormatForeverSellPriceRow(tt, stackPrice)
+
+        -- Only stacks need the additional per-unit value. When Blizzard is
+        -- already showing one item's vendor value, Sell Price alone is enough.
+        if stackPrice <= unitPrice then
+            return
+        end
+
+        tt:AddDoubleLine(
+            "Unit Price:",
+            FormatMoneyWithIcons(unitPrice),
+            NORMAL_FONT_COLOR.r, NORMAL_FONT_COLOR.g, NORMAL_FONT_COLOR.b,
+            1, 1, 1
+        )
+
+        -- This callback runs before Blizzard renders later footer/help lines, so
+        -- Unit Price remains directly beneath Sell Price without moving any rows.
+        CompactForeverPriceRows(tt, stackPrice, unitPrice)
+    end)
 end
 
 function VP:SetPrice(tt, _, _, count, item)
@@ -110,19 +234,11 @@ function VP:SetPrice(tt, _, _, count, item)
             local stackPrice = sellPrice * count
             local unitPrice = sellPrice
 
-            -- Forever already displays Blizzard's Sell Price for the whole stack.
-            -- Leave that native line alone and add only the missing per-unit value.
-            -- A single item is already unambiguous, so it gets no extra line.
+            -- Forever tooltips with a native SellPrice line are handled while
+            -- Blizzard is rendering that line (see the line post-call above).
+            -- Returning here prevents the legacy hooks from appending a duplicate
+            -- Unit Price after Forever's beta feedback/footer text.
             if Compat.IsForever() then
-                if count >= 2 then
-                    tt:AddDoubleLine(
-                        "Unit Price:",
-                        FormatMoneyWithIcons(unitPrice),
-                        1, 1, 1, 1, 1, 1
-                    )
-                    CompactForeverPriceRows(tt, stackPrice, unitPrice)
-                    tt:Show()
-                end
                 return
             end
 
