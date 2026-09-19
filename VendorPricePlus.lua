@@ -400,10 +400,17 @@ if Compat.IsForever() and TooltipDataProcessor and TooltipDataProcessor.AddToolt
             return
         end
 
-        -- Guaranteed quest reward buttons expose stable reward metadata here.
-        -- Selectable quest choices are also handled by the direct quest-button
-        -- hook below because their Forever owner metadata differs.
-        if owner.type == "reward" and owner.objectType == "item" then
+        -- Forever's Map & Quest Log exposes both guaranteed rewards and
+        -- selectable choices through GetQuestLogItem. The tooltip owner tells us
+        -- which kind of quest item button it is. Handle both here because the
+        -- older QuestInfo APIs are not populated while viewing MapQuestInfo.
+        local info = tt.GetProcessingTooltipInfo and tt:GetProcessingTooltipInfo()
+        local getterName = info and info.getterName
+        local isQuestReward = owner.objectType == "item"
+            and (owner.type == "reward" or owner.type == "choice")
+            and (getterName == "GetQuestLogItem" or getterName == "GetQuestItem")
+
+        if isQuestReward then
             if not VP:IsContextEnabled("questRewards") then return end
             local count = tonumber(owner.count) or 1
             local sellPrice = select(11, Compat.GetItemInfo(item))
@@ -422,6 +429,7 @@ if Compat.IsForever() and TooltipDataProcessor and TooltipDataProcessor.AddToolt
                 end
                 tt:Show()
             end
+            return
         end
     end)
 end
