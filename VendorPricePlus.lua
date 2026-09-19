@@ -64,7 +64,6 @@ local function CompactForeverPriceRows(tt, stackPrice, unitPrice)
     local tooltipName = tt.GetName and tt:GetName()
     if not tooltipName or not tt.NumLines then return false end
 
-    local sellIndex, unitIndex
     local sellLeft, sellRight, unitLeft, unitRight
     for i = 1, tt:NumLines() do
         local left = _G[tooltipName .. "TextLeft" .. i]
@@ -72,25 +71,23 @@ local function CompactForeverPriceRows(tt, stackPrice, unitPrice)
         local text = left and left:GetText()
 
         if text and text:find(SELL_PRICE_TEXT, 1, true) == 1 then
-            sellIndex, sellLeft, sellRight = i, left, right
+            sellLeft, sellRight = left, right
         elseif text == "Unit Price:" then
-            unitIndex, unitLeft, unitRight = i, left, right
+            unitLeft, unitRight = left, right
         end
     end
 
-    if not (sellIndex and unitIndex and sellLeft and sellRight and unitLeft and unitRight) then
+    if not (sellLeft and sellRight and unitLeft and unitRight) then
         return false
     end
 
-    -- Normalize the two price rows first. This keeps Blizzard's Sell Price and
-    -- VendorPricePlus's Unit Price visually identical and gives both rows the
-    -- same compact, right-aligned value column.
     sellLeft:SetText(SELL_PRICE_TEXT)
     sellLeft:SetTextColor(NORMAL_FONT_COLOR.r, NORMAL_FONT_COLOR.g, NORMAL_FONT_COLOR.b)
     unitLeft:SetTextColor(NORMAL_FONT_COLOR.r, NORMAL_FONT_COLOR.g, NORMAL_FONT_COLOR.b)
     sellRight:SetText(FormatMoneyWithIcons(stackPrice))
     sellRight:Show()
 
+    -- Keep the value column close to the labels while preserving right alignment.
     local labelWidth = max(sellLeft:GetStringWidth() or 0, unitLeft:GetStringWidth() or 0)
     local valueWidth = max(sellRight:GetStringWidth() or 0, unitRight:GetStringWidth() or 0)
     local rightEdge = 10 + labelWidth + 10 + valueWidth
@@ -99,57 +96,6 @@ local function CompactForeverPriceRows(tt, stackPrice, unitPrice)
     sellRight:SetPoint("RIGHT", tt, "LEFT", rightEdge, 0)
     unitRight:ClearAllPoints()
     unitRight:SetPoint("RIGHT", tt, "LEFT", rightEdge, 0)
-
-    -- Forever beta inserts its blue issue-reporting footer between Blizzard's
-    -- Sell Price and lines appended by addons. AddDoubleLine cannot insert into
-    -- the middle of a tooltip, so move the rendered rows instead of depending
-    -- on the temporary footer text. Swap the Unit Price row with the row that
-    -- immediately follows Sell Price. This keeps the pricing block together
-    -- even if Blizzard changes the wording of that beta footer.
-    if unitIndex > sellIndex + 1 then
-        local targetIndex = sellIndex + 1
-        local targetLeft = _G[tooltipName .. "TextLeft" .. targetIndex]
-        local targetRight = _G[tooltipName .. "TextRight" .. targetIndex]
-
-        if targetLeft and targetRight then
-            local targetLeftText = targetLeft:GetText()
-            local targetRightText = targetRight:GetText()
-
-            local targetLR, targetLG, targetLB, targetLA = targetLeft:GetTextColor()
-            local targetRR, targetRG, targetRB, targetRA = targetRight:GetTextColor()
-            local unitLR, unitLG, unitLB, unitLA = unitLeft:GetTextColor()
-            local unitRR, unitRG, unitRB, unitRA = unitRight:GetTextColor()
-
-            targetLeft:SetText(unitLeft:GetText())
-            targetRight:SetText(unitRight:GetText())
-            targetLeft:SetTextColor(unitLR, unitLG, unitLB, unitLA)
-            targetRight:SetTextColor(unitRR, unitRG, unitRB, unitRA)
-
-            -- Blizzard single-column footer rows keep their unused right-hand
-            -- FontString hidden. Once that row becomes Unit Price, explicitly
-            -- show the value column or the copied money text will not render.
-            targetRight:Show()
-
-            unitLeft:SetText(targetLeftText or "")
-            unitRight:SetText(targetRightText or "")
-            unitLeft:SetTextColor(targetLR, targetLG, targetLB, targetLA)
-            unitRight:SetTextColor(targetRR, targetRG, targetRB, targetRA)
-
-            -- Restore the moved footer to a true single-column row. Leaving its
-            -- formerly used right FontString visible can make Blizzard reserve
-            -- unnecessary space below the tooltip contents.
-            if targetRightText and targetRightText ~= "" then
-                unitRight:Show()
-            else
-                unitRight:Hide()
-            end
-
-            -- The Unit Price value now lives on the row directly below Sell
-            -- Price, so align that row to the same compact value column.
-            targetRight:ClearAllPoints()
-            targetRight:SetPoint("RIGHT", tt, "LEFT", rightEdge, 0)
-        end
-    end
 
     return true
 end
