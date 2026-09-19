@@ -500,7 +500,9 @@ local function SafeHookScript(frame, scriptName, callback)
     return true
 end
 
-hooksecurefunc("QuestInfo_Display", function()
+local function HookQuestRewardButtons()
+    -- Older quest UI exposes reward buttons as named children of
+    -- QuestInfoRewardsFrame.
     for i = 1, MAX_NUM_ITEMS do
         local button = QuestInfoRewardsFrame and QuestInfoRewardsFrame["QuestInfoItem" .. i]
         if button and not button.__VendorPricePlusHooked then
@@ -508,8 +510,24 @@ hooksecurefunc("QuestInfo_Display", function()
                 button.__VendorPricePlusHooked = true
             end
         end
+
+        -- Forever's Map & Quest Log uses the global QuestInfoItemN buttons for
+        -- both guaranteed rewards and selectable choices. They are not indexed
+        -- as children on QuestInfoRewardsFrame, so hook the globals as well.
+        local globalButton = _G["QuestInfoItem" .. i]
+        if globalButton and not globalButton.__VendorPricePlusHooked then
+            if SafeHookScript(globalButton, "OnEnter", OnEnterQuestReward) then
+                globalButton.__VendorPricePlusHooked = true
+            end
+        end
     end
-end)
+end
+
+hooksecurefunc("QuestInfo_Display", HookQuestRewardButtons)
+
+-- Quest reward frames may be created lazily. Run once at load for any buttons
+-- that already exist; QuestInfo_Display will cover subsequent refreshes.
+HookQuestRewardButtons()
 
 -- Tooltip fallback using GetOwner() (DF-safe)
 if GameTooltip.HasScript and GameTooltip:HasScript("OnTooltipSetItem") then
