@@ -1,6 +1,6 @@
 ## Interface: 20506, 11509, 16001
 ## Title: VendorPricePlus
-## Version: 1.2.0
+## Version: 1.2.1
 ## Author: StormtrooperTK421 (Ketho, Icesythe7)
 ## Notes: Clear vendor pricing for Classic and WoW Forever item tooltips
 ## DefaultState: enabled
