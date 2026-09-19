@@ -3,3 +3,4 @@ package-as: VendorPricePlus
 ignore:
   - .github
   - .gitignore
+  - ARCHITECTURE.md
