@@ -451,50 +451,16 @@ end
 -- Quest reward tooltip support (FIXED for DF-style UI)
 --------------------------------------------------------------------------------
 
--- Direct quest reward button hook. This path is important on Forever because
--- selectable quest choices do not expose the same modern tooltip-owner metadata
--- as guaranteed rewards.
+-- Direct quest reward button hook for the legacy quest UI used by supported
+-- Classic clients. Forever's Map & Quest Log is handled by the modern tooltip
+-- post-call above.
 local function OnEnterQuestReward(self)
+    if Compat.IsForever() then return end
+
     local link = self.itemLink or (self.GetID and GetQuestItemLink(self.type, self:GetID()))
-    if not link then return end
-
-    if Compat.IsForever() then
-        if not VP:IsContextEnabled("questRewards") then return end
-
-        -- Guaranteed rewards may already have been handled by the modern
-        -- tooltip post-call above. Do not add a duplicate Sell Price row.
-        local tooltipName = GameTooltip.GetName and GameTooltip:GetName()
-        if tooltipName and GameTooltip.NumLines then
-            for i = 1, GameTooltip:NumLines() do
-                local left = _G[tooltipName .. "TextLeft" .. i]
-                local text = left and left:GetText()
-                if text and text:find(SELL_PRICE_TEXT, 1, true) == 1 then
-                    return
-                end
-            end
-        end
-
-        local count = tonumber(self.count) or 1
-        local sellPrice = select(11, Compat.GetItemInfo(link))
-        if sellPrice and sellPrice > 0 then
-            GameTooltip:AddDoubleLine(
-                NORMAL_FONT_COLOR:WrapTextInColorCode(SELL_PRICE_TEXT),
-                FormatMoneyWithIcons(sellPrice * count),
-                1, 1, 1, 1, 1, 1
-            )
-            if count >= 2 then
-                GameTooltip:AddDoubleLine(
-                    "Unit Price:",
-                    FormatMoneyWithIcons(sellPrice),
-                    1, 1, 1, 1, 1, 1
-                )
-            end
-            GameTooltip:Show()
-        end
-        return
+    if link then
+        VP:SetPrice(GameTooltip, false, "QuestReward", self.count or 1, link)
     end
-
-    VP:SetPrice(GameTooltip, false, "QuestReward", self.count or 1, link)
 end
 
 local function SafeHookScript(frame, scriptName, callback)
@@ -508,9 +474,7 @@ local function SafeHookScript(frame, scriptName, callback)
     return true
 end
 
-local function HookQuestRewardButtons()
-    -- Older quest UI exposes reward buttons as named children of
-    -- QuestInfoRewardsFrame.
+hooksecurefunc("QuestInfo_Display", function()
     for i = 1, MAX_NUM_ITEMS do
         local button = QuestInfoRewardsFrame and QuestInfoRewardsFrame["QuestInfoItem" .. i]
         if button and not button.__VendorPricePlusHooked then
@@ -518,24 +482,8 @@ local function HookQuestRewardButtons()
                 button.__VendorPricePlusHooked = true
             end
         end
-
-        -- Forever's Map & Quest Log uses the global QuestInfoItemN buttons for
-        -- both guaranteed rewards and selectable choices. They are not indexed
-        -- as children on QuestInfoRewardsFrame, so hook the globals as well.
-        local globalButton = _G["QuestInfoItem" .. i]
-        if globalButton and not globalButton.__VendorPricePlusHooked then
-            if SafeHookScript(globalButton, "OnEnter", OnEnterQuestReward) then
-                globalButton.__VendorPricePlusHooked = true
-            end
-        end
     end
-end
-
-hooksecurefunc("QuestInfo_Display", HookQuestRewardButtons)
-
--- Quest reward frames may be created lazily. Run once at load for any buttons
--- that already exist; QuestInfo_Display will cover subsequent refreshes.
-HookQuestRewardButtons()
+end)
 
 -- Tooltip fallback using GetOwner() (DF-safe)
 if GameTooltip.HasScript and GameTooltip:HasScript("OnTooltipSetItem") then
