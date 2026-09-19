@@ -125,10 +125,24 @@ local function CompactForeverPriceRows(tt, stackPrice, unitPrice)
             targetLeft:SetTextColor(unitLR, unitLG, unitLB, unitLA)
             targetRight:SetTextColor(unitRR, unitRG, unitRB, unitRA)
 
+            -- Blizzard single-column footer rows keep their unused right-hand
+            -- FontString hidden. Once that row becomes Unit Price, explicitly
+            -- show the value column or the copied money text will not render.
+            targetRight:Show()
+
             unitLeft:SetText(targetLeftText or "")
             unitRight:SetText(targetRightText or "")
             unitLeft:SetTextColor(targetLR, targetLG, targetLB, targetLA)
             unitRight:SetTextColor(targetRR, targetRG, targetRB, targetRA)
+
+            -- Restore the moved footer to a true single-column row. Leaving its
+            -- formerly used right FontString visible can make Blizzard reserve
+            -- unnecessary space below the tooltip contents.
+            if targetRightText and targetRightText ~= "" then
+                unitRight:Show()
+            else
+                unitRight:Hide()
+            end
 
             -- The Unit Price value now lives on the row directly below Sell
             -- Price, so align that row to the same compact value column.
