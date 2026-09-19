@@ -18,6 +18,32 @@ end
 local SELL_PRICE_TEXT = format("%s:", SELL_PRICE)
 local overridePrice
 
+-- Forever tooltip context preferences. All supported surfaces are enabled by
+-- default so installing VendorPricePlus provides the complete enhancement.
+VendorPricePlusDB = VendorPricePlusDB or {}
+local CONTEXT_DEFAULTS = {
+    inventoryBank = true,
+    mail = true,
+    merchant = true,
+    professions = true,
+    questRewards = true,
+}
+
+local function EnsureContextDefaults()
+    VendorPricePlusDB.contexts = VendorPricePlusDB.contexts or {}
+    for key, value in pairs(CONTEXT_DEFAULTS) do
+        if VendorPricePlusDB.contexts[key] == nil then
+            VendorPricePlusDB.contexts[key] = value
+        end
+    end
+end
+
+local function ContextEnabled(key)
+    EnsureContextDefaults()
+    return VendorPricePlusDB.contexts[key] ~= false
+end
+
+
 -- First keyring inventory slot
 local FIRST_KEYRING_INVSLOT = 107
 
@@ -167,12 +193,14 @@ local SetItem = {
         VP:SetPrice(tt, false, "SetAuctionItem", count)
     end,
     SetBagItem = function(tt, bag, slot)
+        if Compat.IsForever() and not ContextEnabled("inventoryBank") then return end
         local info = Compat.GetContainerItemInfo(bag, slot)
         if info and info.stackCount then
             VP:SetPrice(tt, true, "SetBagItem", info.stackCount)
         end
     end,
     SetInventoryItem = function(tt, unit, slot)
+        if Compat.IsForever() and not ContextEnabled("inventoryBank") then return end
         if slot < FIRST_KEYRING_INVSLOT then
             VP:SetPrice(tt, true, "SetInventoryItem", GetInventoryItemCount(unit, slot))
         end
@@ -368,6 +396,7 @@ end
 if Compat.IsForever() then
     if type(GameTooltip.SetSendMailItem) == "function" then
         hooksecurefunc(GameTooltip, "SetSendMailItem", function(tt, attachmentIndex)
+            if not ContextEnabled("mail") then return end
             local name, _, count = GetSendMailItem(attachmentIndex)
             if name then
                 VP:SetPrice(tt, true, "SetSendMailItem", count or 1)
@@ -377,6 +406,7 @@ if Compat.IsForever() then
 
     if type(GameTooltip.SetBuybackItem) == "function" then
         hooksecurefunc(GameTooltip, "SetBuybackItem", function(tt, buybackIndex)
+            if not ContextEnabled("merchant") then return end
             local name, _, price, count = GetBuybackItemInfo(buybackIndex)
             if name then
                 VP:SetPrice(tt, true, "SetBuybackItem", count or 1)
@@ -405,6 +435,7 @@ if Compat.IsForever() and TooltipDataProcessor and TooltipDataProcessor.AddToolt
         -- itemContextMatchResult (confirmed in Forever). Blizzard's Sell Price
         -- is the value of that required quantity, so add the per-unit value.
         if owner.buttonContext == "ButtonContext_ProfessionsReagentButton" then
+            if not ContextEnabled("professions") then return end
             local count = tonumber(owner.itemContextMatchResult) or tonumber(owner.count) or 1
             if count >= 2 then
                 VP:SetPrice(tt, true, "ProfessionReagent", count, item)
@@ -414,6 +445,7 @@ if Compat.IsForever() and TooltipDataProcessor and TooltipDataProcessor.AddToolt
 
         -- Forever quest reward buttons omit Sell Price entirely. Supply it.
         if owner.type == "reward" and owner.objectType == "item" then
+            if not ContextEnabled("questRewards") then return end
             local count = tonumber(owner.count) or 1
             local sellPrice = select(11, Compat.GetItemInfo(item))
             if sellPrice and sellPrice > 0 then
@@ -433,6 +465,83 @@ if Compat.IsForever() and TooltipDataProcessor and TooltipDataProcessor.AddToolt
             end
         end
     end)
+end
+
+-- Forever options: emphasize the tooltip surfaces VendorPricePlus enhances.
+if Compat.IsForever() then
+    EnsureContextDefaults()
+
+    local panel = CreateFrame("Frame", "VendorPricePlusOptionsPanel")
+    panel.name = "VendorPricePlus"
+
+    panel:SetScript("OnShow", function(self)
+        if self.initialized then return end
+        self.initialized = true
+
+        local title = self:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
+        title:SetPoint("TOPLEFT", 16, -16)
+        title:SetText("VendorPricePlus")
+
+        local subtitle = self:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+        subtitle:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -8)
+        subtitle:SetText("Choose where VendorPricePlus adds clearer vendor pricing.")
+
+        local heading = self:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+        heading:SetPoint("TOPLEFT", subtitle, "BOTTOMLEFT", 0, -22)
+        heading:SetText("Show Unit Price In")
+
+        local choices = {
+            { key = "inventoryBank", label = "Inventory & Bank" },
+            { key = "mail", label = "Mail" },
+            { key = "merchant", label = "Merchant & Buyback" },
+            { key = "professions", label = "Professions" },
+            { key = "questRewards", label = "Quest Rewards" },
+        }
+
+        local previous = heading
+        for _, choice in ipairs(choices) do
+            local check = CreateFrame("CheckButton", nil, self, "UICheckButtonTemplate")
+            check:SetPoint("TOPLEFT", previous, "BOTTOMLEFT", -4, -8)
+            check:SetChecked(ContextEnabled(choice.key))
+
+            local label = check:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+            label:SetPoint("LEFT", check, "RIGHT", 2, 0)
+            label:SetText(choice.label)
+
+            check:SetScript("OnClick", function(button)
+                EnsureContextDefaults()
+                VendorPricePlusDB.contexts[choice.key] = button:GetChecked() and true or false
+            end)
+
+            previous = check
+        end
+
+        local note = self:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
+        note:SetPoint("TOPLEFT", previous, "BOTTOMLEFT", 4, -18)
+        note:SetWidth(500)
+        note:SetJustifyH("LEFT")
+        note:SetText("All supported tooltip contexts are enabled by default. The Auction House already shows Blizzard's correct per-unit Sell Price, so VendorPricePlus leaves it unchanged.")
+    end)
+
+    if Settings and Settings.RegisterCanvasLayoutCategory and Settings.RegisterAddOnCategory then
+        local category = Settings.RegisterCanvasLayoutCategory(panel, "VendorPricePlus")
+        Settings.RegisterAddOnCategory(category)
+        VP.OptionsCategory = category
+    elseif InterfaceOptions_AddCategory then
+        InterfaceOptions_AddCategory(panel)
+    end
+
+    SLASH_VENDORPRICEPLUS1 = "/vpp"
+    SlashCmdList.VENDORPRICEPLUS = function()
+        if Settings and Settings.OpenToCategory and VP.OptionsCategory then
+            Settings.OpenToCategory(VP.OptionsCategory:GetID())
+        elseif InterfaceOptionsFrame_OpenToCategory then
+            InterfaceOptionsFrame_OpenToCategory(panel)
+            InterfaceOptionsFrame_OpenToCategory(panel)
+        else
+            print("VendorPricePlus options are available from the AddOns settings.")
+        end
+    end
 end
 
 -- ItemRef tooltip support
