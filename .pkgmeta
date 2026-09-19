@@ -1,0 +1,5 @@
+package-as: VendorPricePlus
+
+ignore:
+  - .github
+  - .gitignore
