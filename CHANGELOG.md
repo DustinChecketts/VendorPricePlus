@@ -20,9 +20,9 @@
 - Preserved the established non-Forever Vendor Price Plus behavior for supported Classic clients.
 
 ### Compatibility
-- WoW Forever: tested during beta.
+- WoW Forever: tested successfully.
 - TBC Anniversary: regression tested successfully.
-- Classic Era family: architecture retained; 1.2.0 regression test pending.
+- Classic Era: regression tested successfully.
 - Mists of Pandaria Classic and Retail: not currently tested or advertised as supported.
 
 ## 1.1.3
