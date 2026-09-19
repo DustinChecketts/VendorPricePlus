@@ -35,7 +35,7 @@ Vendor Price Plus retains its established Classic behavior:
 | --- | --- |
 | WoW Forever | Supported |
 | TBC Anniversary | Supported |
-| Classic Era / Hardcore / Season of Discovery | Supported architecture; Classic Era regression test pending for 1.2.0 |
+| Classic Era / Hardcore / Season of Discovery | Supported; Classic Era regression tested successfully for 1.2.0 |
 | Mists of Pandaria Classic | Not currently tested/supported |
 | Retail | Not currently tested/supported |
 
