@@ -81,6 +81,8 @@ local function CompactForeverPriceRows(tt, stackPrice, unitPrice)
     end
 
     sellLeft:SetText(SELL_PRICE_TEXT)
+    sellLeft:SetTextColor(NORMAL_FONT_COLOR.r, NORMAL_FONT_COLOR.g, NORMAL_FONT_COLOR.b)
+    unitLeft:SetTextColor(NORMAL_FONT_COLOR.r, NORMAL_FONT_COLOR.g, NORMAL_FONT_COLOR.b)
     sellRight:SetText(FormatMoneyWithIcons(stackPrice))
     sellRight:Show()
 
