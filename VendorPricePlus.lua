@@ -499,9 +499,15 @@ if Compat.IsForever() then
         }
 
         local previous = heading
+        local firstChoice = true
         for _, choice in ipairs(choices) do
             local check = CreateFrame("CheckButton", nil, self, "UICheckButtonTemplate")
-            check:SetPoint("TOPLEFT", previous, "BOTTOMLEFT", -4, -8)
+            if firstChoice then
+                check:SetPoint("TOPLEFT", previous, "BOTTOMLEFT", -4, -8)
+                firstChoice = false
+            else
+                check:SetPoint("TOPLEFT", previous, "BOTTOMLEFT", 0, -8)
+            end
             check:SetChecked(ContextEnabled(choice.key))
 
             local label = check:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
