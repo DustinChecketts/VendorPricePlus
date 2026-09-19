@@ -54,6 +54,49 @@ local function FormatMoneyWithIcons(amount)
     return goldString .. silverString .. copperString
 end
 
+-- Compact Forever price rows into a small two-column table.
+-- Blizzard writes Sell Price as one left-aligned string. For stack contexts we
+-- split that native line into the existing left/right FontStrings, then align
+-- our Unit Price row to the same nearby right edge. If the expected tooltip
+-- FontStrings are unavailable, this safely falls back to Blizzard's layout.
+local function CompactForeverPriceRows(tt, stackPrice, unitPrice)
+    local tooltipName = tt.GetName and tt:GetName()
+    if not tooltipName or not tt.NumLines then return false end
+
+    local sellLeft, sellRight, unitLeft, unitRight
+    for i = 1, tt:NumLines() do
+        local left = _G[tooltipName .. "TextLeft" .. i]
+        local right = _G[tooltipName .. "TextRight" .. i]
+        local text = left and left:GetText()
+
+        if text and text:find(SELL_PRICE_TEXT, 1, true) == 1 then
+            sellLeft, sellRight = left, right
+        elseif text == "Unit Price:" then
+            unitLeft, unitRight = left, right
+        end
+    end
+
+    if not (sellLeft and sellRight and unitLeft and unitRight) then
+        return false
+    end
+
+    sellLeft:SetText(SELL_PRICE_TEXT)
+    sellRight:SetText(FormatMoneyWithIcons(stackPrice))
+    sellRight:Show()
+
+    -- Keep the value column close to the labels while preserving right alignment.
+    local labelWidth = max(sellLeft:GetStringWidth() or 0, unitLeft:GetStringWidth() or 0)
+    local valueWidth = max(sellRight:GetStringWidth() or 0, unitRight:GetStringWidth() or 0)
+    local rightEdge = 10 + labelWidth + 10 + valueWidth
+
+    sellRight:ClearAllPoints()
+    sellRight:SetPoint("RIGHT", tt, "LEFT", rightEdge, 0)
+    unitRight:ClearAllPoints()
+    unitRight:SetPoint("RIGHT", tt, "LEFT", rightEdge, 0)
+
+    return true
+end
+
 function VP:SetPrice(tt, _, _, count, item)
     count = count or 1
     item = item or select(2, tt:GetItem())
@@ -74,6 +117,7 @@ function VP:SetPrice(tt, _, _, count, item)
                         FormatMoneyWithIcons(unitPrice),
                         1, 1, 1, 1, 1, 1
                     )
+                    CompactForeverPriceRows(tt, stackPrice, unitPrice)
                     tt:Show()
                 end
                 return
