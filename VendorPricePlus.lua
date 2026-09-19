@@ -70,7 +70,7 @@ function VP:SetPrice(tt, _, _, count, item)
             if Compat.IsForever() then
                 if count >= 2 then
                     tt:AddDoubleLine(
-                        NORMAL_FONT_COLOR:WrapTextInColorCode("Each"),
+                        "Unit Price:",
                         FormatMoneyWithIcons(unitPrice),
                         1, 1, 1, 1, 1, 1
                     )
@@ -378,7 +378,7 @@ if Compat.IsForever() and TooltipDataProcessor and TooltipDataProcessor.AddToolt
                 )
                 if count >= 2 then
                     tt:AddDoubleLine(
-                        NORMAL_FONT_COLOR:WrapTextInColorCode("Each"),
+                        "Unit Price:",
                         FormatMoneyWithIcons(sellPrice),
                         1, 1, 1, 1, 1, 1
                     )
