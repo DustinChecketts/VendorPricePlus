@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.2.0 - Release Candidate
+## 1.2.0
 
 ### WoW Forever
 - Added WoW Forever client detection and modern tooltip compatibility.
@@ -21,7 +21,7 @@
 
 ### Compatibility
 - WoW Forever: tested during beta.
-- TBC Anniversary: regression testing in progress.
+- TBC Anniversary: regression tested successfully.
 - Classic Era family: architecture retained; 1.2.0 regression test pending.
 - Mists of Pandaria Classic and Retail: not currently tested or advertised as supported.
 
