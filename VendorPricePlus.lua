@@ -99,6 +99,98 @@ local function CompactForeverPriceRows(tt, stackPrice, unitPrice)
 
     return true
 end
+
+-- Forever's modern tooltip pipeline exposes Sell Price as its own typed line.
+-- A line post-call runs immediately after Blizzard renders that line but before
+-- the following footer/help lines are rendered. Adding Unit Price here keeps the
+-- two price rows together without moving or rewriting Blizzard's later rows.
+--
+-- This is intentionally Forever-only. Older supported clients continue through
+-- the established SetPrice hooks below.
+if Compat.IsForever()
+    and TooltipDataProcessor
+    and TooltipDataProcessor.AddLinePostCall
+    and Enum
+    and Enum.TooltipDataLineType
+    and Enum.TooltipDataLineType.SellPrice then
+
+    local function GetForeverContextKey(tt)
+        -- The modern tooltip handler retains the C_TooltipInfo getter that built
+        -- the current tooltip. Prefer that stable API context over frame names.
+        local info = tt.GetProcessingTooltipInfo and tt:GetProcessingTooltipInfo()
+        local getterName = info and info.getterName
+
+        if getterName then
+            if getterName == "GetSendMailItem" or getterName == "GetInboxItem" then
+                return "mail"
+            elseif getterName == "GetBuybackItem" or getterName == "GetMerchantItem" then
+                return "merchant"
+            elseif getterName == "GetRecipeReagentItem" then
+                return "professions"
+            elseif getterName == "GetQuestItem" or getterName == "GetQuestLogItem" then
+                return "questRewards"
+            elseif getterName == "GetBagItem"
+                or getterName == "GetBagItemChild"
+                or getterName == "GetInventoryItem" then
+                return "inventoryBank"
+            end
+        end
+
+        -- Profession reagent buttons have useful owner metadata in Forever even
+        -- when the tooltip getter is not exposed by name.
+        local owner = tt.GetOwner and tt:GetOwner()
+        if owner and owner.buttonContext == "ButtonContext_ProfessionsReagentButton" then
+            return "professions"
+        end
+
+        -- Unknown item surfaces keep the historical default behavior. The
+        -- stack-price comparison below still prevents an unnecessary Unit Price
+        -- line when Blizzard is already displaying a single-item value.
+        return nil
+    end
+
+    TooltipDataProcessor.AddLinePostCall(Enum.TooltipDataLineType.SellPrice, function(tt, lineData)
+        if not tt or not lineData then return end
+
+        local contextKey = GetForeverContextKey(tt)
+        if contextKey and not VP:IsContextEnabled(contextKey) then
+            return
+        end
+
+        local info = tt.GetProcessingTooltipInfo and tt:GetProcessingTooltipInfo()
+        local tooltipData = info and info.tooltipData
+        local item = tooltipData and (tooltipData.hyperlink or tooltipData.id)
+
+        if not item and type(tt.GetItem) == "function" then
+            item = select(2, tt:GetItem())
+        end
+        if not item then return end
+
+        local unitPrice = select(11, Compat.GetItemInfo(item))
+        local stackPrice = tonumber(lineData.price)
+
+        -- Forever's SellPrice line contains the value Blizzard is displaying for
+        -- this tooltip context. If it is not larger than the item's normal vendor
+        -- value, the tooltip is already showing a single-unit price (notably the
+        -- Auction House) and VPP has nothing useful to add.
+        if not unitPrice or unitPrice <= 0 or not stackPrice or stackPrice <= unitPrice then
+            return
+        end
+
+        tt:AddDoubleLine(
+            "Unit Price:",
+            FormatMoneyWithIcons(unitPrice),
+            NORMAL_FONT_COLOR.r, NORMAL_FONT_COLOR.g, NORMAL_FONT_COLOR.b,
+            1, 1, 1
+        )
+
+        -- We are still inside Blizzard's line-processing pass, so the Unit Price
+        -- row has been appended directly after Sell Price. Reuse the existing
+        -- formatter only for the compact two-column alignment; no rows are moved.
+        CompactForeverPriceRows(tt, stackPrice, unitPrice)
+    end)
+end
+
 function VP:SetPrice(tt, _, _, count, item)
     count = count or 1
     item = item or select(2, tt:GetItem())
@@ -109,19 +201,11 @@ function VP:SetPrice(tt, _, _, count, item)
             local stackPrice = sellPrice * count
             local unitPrice = sellPrice
 
-            -- Forever already displays Blizzard's Sell Price for the whole stack.
-            -- Leave that native line alone and add only the missing per-unit value.
-            -- A single item is already unambiguous, so it gets no extra line.
+            -- Forever tooltips with a native SellPrice line are handled while
+            -- Blizzard is rendering that line (see the line post-call above).
+            -- Returning here prevents the legacy hooks from appending a duplicate
+            -- Unit Price after Forever's beta feedback/footer text.
             if Compat.IsForever() then
-                if count >= 2 then
-                    tt:AddDoubleLine(
-                        "Unit Price:",
-                        FormatMoneyWithIcons(unitPrice),
-                        1, 1, 1, 1, 1, 1
-                    )
-                    CompactForeverPriceRows(tt, stackPrice, unitPrice)
-                    tt:Show()
-                end
                 return
             end
 
