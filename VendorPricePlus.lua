@@ -346,10 +346,12 @@ if Compat.IsForever() and TooltipDataProcessor and TooltipDataProcessor.AddToolt
         local owner = tt.GetOwner and tt:GetOwner()
         if not owner then return end
 
-        local item = select(2, tt:GetItem())
-        if not item then
-            local itemID = data and (data.id or data.itemID)
-            item = itemID
+        -- Comparison tooltips in Forever can participate in the modern item
+        -- pipeline without exposing GetItem(). Prefer the data ID, and only call
+        -- GetItem when that method actually exists.
+        local item = data and (data.id or data.itemID)
+        if type(tt.GetItem) == "function" then
+            item = select(2, tt:GetItem()) or item
         end
         if not item then return end
 
