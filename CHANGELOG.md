@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.2.1
+
+### WoW Forever
+- Fixed missing Sell Price on selectable quest rewards in the Map & Quest Log.
+- Fixed protected/secret tooltip geometry errors when hovering item actions such as food and water on the action bar.
+- Kept Forever price-row formatting on Blizzard's safe tooltip layout path instead of measuring protected FontString geometry.
+
 ## 1.2.0
 
 ### WoW Forever
