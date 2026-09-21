@@ -202,11 +202,24 @@ if Compat.IsForever()
         -- This gives Forever tooltips one consistent vendor-price presentation.
         FormatForeverSellPriceRow(tt, stackPrice)
 
-        -- Only stacks need the additional per-unit value. When Blizzard is
-        -- already showing one item's vendor value, Sell Price alone is enough.
-        if stackPrice <= unitPrice then
+        -- Never infer stack quantity by comparing Blizzard's rendered Sell Price
+        -- with GetItemInfo(). Forever can expose a different hyperlink through
+        -- tooltipData than GameTooltip:GetItem() (recipes are one confirmed
+        -- example), so that comparison can mix prices from two different items.
+        --
+        -- For bag/inventory tooltips, use the owner's actual item count. Other
+        -- modern contexts that need a Unit Price have their own explicit count
+        -- paths below.
+        local owner = tt.GetOwner and tt:GetOwner()
+        local count = owner and tonumber(owner.count) or 1
+        if contextKey ~= "inventoryBank" or count < 2 then
             return
         end
+
+        -- The stack price is authoritative for the displayed item. Derive the
+        -- unit value from the real stack count rather than a possibly mismatched
+        -- tooltipData hyperlink.
+        unitPrice = floor(stackPrice / count)
 
         tt:AddDoubleLine(
             "Unit Price:",
