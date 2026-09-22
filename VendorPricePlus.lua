@@ -286,6 +286,13 @@ end
 local SetItem = {
     SetAction = function(tt, slot)
         if GetActionInfo(slot) == "item" then
+            -- Forever can return a secret/protected count from GetActionCount().
+            -- The modern SellPrice tooltip pipeline already handles action-bar
+            -- item tooltips, so never pass that protected value into legacy
+            -- arithmetic in SetPrice().
+            if Compat.IsForever() then
+                return
+            end
             VP:SetPrice(tt, true, "SetAction", GetActionCount(slot))
         end
     end,
