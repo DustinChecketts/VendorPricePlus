@@ -212,14 +212,30 @@ if Compat.IsForever()
         -- paths below.
         local owner = tt.GetOwner and tt:GetOwner()
         local count = owner and tonumber(owner.count) or 1
-        if contextKey ~= "inventoryBank" or count < 2 then
+
+        if contextKey == "inventoryBank" then
+            if count < 2 then
+                return
+            end
+
+            -- The stack price is authoritative for the displayed bag/inventory
+            -- item. Derive the unit value from the real stack count rather than a
+            -- possibly mismatched tooltipData hyperlink.
+            unitPrice = floor(stackPrice / count)
+        elseif contextKey == nil then
+            -- Secure action-bar tooltips do not expose a readable stack count on
+            -- Forever. Do not touch GetActionCount(): it can be secret. Blizzard's
+            -- SellPrice line is the displayed stack value, while GetItemInfo()
+            -- gives the item's normal per-unit vendor value. If those differ, the
+            -- tooltip is showing a genuine stack and we can safely add Unit Price
+            -- without inspecting the protected count.
+            if stackPrice <= unitPrice then
+                return
+            end
+        else
+            -- Known non-inventory contexts have their own explicit count paths.
             return
         end
-
-        -- The stack price is authoritative for the displayed item. Derive the
-        -- unit value from the real stack count rather than a possibly mismatched
-        -- tooltipData hyperlink.
-        unitPrice = floor(stackPrice / count)
 
         tt:AddDoubleLine(
             "Unit Price:",
