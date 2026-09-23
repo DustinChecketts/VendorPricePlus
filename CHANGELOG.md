@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.2.2
+
+### WoW Forever
+- Fixed protected/secret stack-count errors when hovering stackable items on action bars.
+- Restored Unit Price information for stackable action-bar item tooltips.
+- Fixed incorrect Unit Price detection on recipe tooltips.
+- Fixed duplicate Sell Price information on quest-offer reward tooltips.
+
 ## 1.2.1
 
 ### WoW Forever
