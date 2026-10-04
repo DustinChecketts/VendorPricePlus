@@ -222,42 +222,79 @@ if Compat.IsForever()
             return
         end
 
-        -- Always normalize the native Sell Price row, including single items.
-        -- This gives Forever tooltips one consistent vendor-price presentation.
-        FormatForeverSellPriceRow(tt, stackPrice)
-
-        -- Never infer stack quantity by comparing Blizzard's rendered Sell Price
-        -- with GetItemInfo(). Forever can expose a different hyperlink through
-        -- tooltipData than GameTooltip:GetItem() (recipes are one confirmed
-        -- example), so that comparison can mix prices from two different items.
-        --
-        -- For bag/inventory tooltips, use the owner's actual item count. Other
-        -- modern contexts that need a Unit Price have their own explicit count
-        -- paths below.
+        -- Standardize Forever on the same terminology used by VPP on Classic:
+        -- Vendor is the per-unit value and Vendor xN is the full stack value.
+        -- Blizzard's native Sell Price line is therefore only an input value; VPP
+        -- rewrites the visible presentation so installing Auctionator does not
+        -- change the vocabulary players see.
         local owner = tt.GetOwner and tt:GetOwner()
         local count = owner and tonumber(owner.count) or 1
 
         if contextKey == "inventoryBank" then
-            if count < 2 then
+            if count < 1 then
+                count = 1
+            end
+
+            -- The rendered Sell Price is authoritative for this exact stack.
+            -- Derive the per-unit value from it rather than trusting tooltipData's
+            -- hyperlink, which can identify a related item for recipes.
+            unitPrice = floor(stackPrice / count)
+
+            -- Auctionator owns the per-unit Vendor and Auction rows when present.
+            -- VPP contributes only Vendor xN for genuine stacks.
+            if IsAuctionatorLoaded() then
+                if count >= 2 then
+                    local stackText = format("Vendor |cff88ccffx%d|r", count)
+                    tt:AddDoubleLine(
+                        NORMAL_FONT_COLOR:WrapTextInColorCode(stackText),
+                        FormatMoneyWithIcons(stackPrice),
+                        1, 1, 1, 1, 1, 1
+                    )
+                    tt:Show()
+                end
                 return
             end
 
-            -- The stack price is authoritative for the displayed bag/inventory
-            -- item. Derive the unit value from the real stack count rather than a
-            -- possibly mismatched tooltipData hyperlink.
-            unitPrice = floor(stackPrice / count)
+            -- Without Auctionator, replace Blizzard's Sell Price presentation
+            -- with VPP's established Vendor / Vendor xN convention.
+            local tooltipName = tt.GetName and tt:GetName()
+            if tooltipName and tt.NumLines then
+                for i = 1, tt:NumLines() do
+                    local left = _G[tooltipName .. "TextLeft" .. i]
+                    local right = _G[tooltipName .. "TextRight" .. i]
+                    local text = left and left:GetText()
+                    if text and text:find(SELL_PRICE_TEXT, 1, true) == 1 and right then
+                        left:SetText(NORMAL_FONT_COLOR:WrapTextInColorCode("Vendor"))
+                        right:SetText(FormatMoneyWithIcons(unitPrice))
+                        right:Show()
+                        right:ClearAllPoints()
+                        right:SetPoint("RIGHT", tt, "RIGHT", -10, 0)
+                        break
+                    end
+                end
+            end
+
+            if count >= 2 then
+                local stackText = format("Vendor |cff88ccffx%d|r", count)
+                tt:AddDoubleLine(
+                    NORMAL_FONT_COLOR:WrapTextInColorCode(stackText),
+                    FormatMoneyWithIcons(stackPrice),
+                    1, 1, 1, 1, 1, 1
+                )
+                tt:Show()
+            end
+            return
         elseif contextKey == nil then
             -- Secure action-bar tooltips do not expose a readable stack count on
-            -- Forever. Do not touch GetActionCount(): it can be secret. Blizzard's
-            -- SellPrice line is the displayed stack value, while GetItemInfo()
-            -- gives the item's normal per-unit vendor value. If those differ, the
-            -- tooltip is showing a genuine stack and we can safely add Unit Price
-            -- without inspecting the protected count.
+            -- Forever. Do not touch GetActionCount(): it can be secret. Preserve
+            -- the safe action-bar behavior established in 1.2.2.
+            FormatForeverSellPriceRow(tt, stackPrice)
             if stackPrice <= unitPrice then
                 return
             end
         else
             -- Known non-inventory contexts have their own explicit count paths.
+            FormatForeverSellPriceRow(tt, stackPrice)
             return
         end
 
@@ -268,8 +305,6 @@ if Compat.IsForever()
             1, 1, 1
         )
 
-        -- This callback runs before Blizzard renders later footer/help lines, so
-        -- Unit Price remains directly beneath Sell Price without moving any rows.
         CompactForeverPriceRows(tt, stackPrice, unitPrice)
     end)
 end
