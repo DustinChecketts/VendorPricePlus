@@ -198,6 +198,30 @@ if Compat.IsForever()
             return
         end
 
+        -- When Auctionator is loaded on Forever, let Auctionator own the
+        -- per-unit Vendor and Auction rows. VPP mirrors its established Classic
+        -- integration by contributing only the full-stack Vendor row for
+        -- stackable bag/inventory items.
+        --
+        -- Auctionator clears/replaces Blizzard's native Sell Price on supported
+        -- tooltip surfaces, so do not rewrite that row into VPP's Forever
+        -- Sell Price / Unit Price presentation when the integration is active.
+        if IsAuctionatorLoaded() and contextKey == "inventoryBank" then
+            local owner = tt.GetOwner and tt:GetOwner()
+            local count = owner and tonumber(owner.count) or 1
+
+            if count >= 2 then
+                local stackText = format("Vendor |cff88ccffx%d|r", count)
+                tt:AddDoubleLine(
+                    NORMAL_FONT_COLOR:WrapTextInColorCode(stackText),
+                    FormatMoneyWithIcons(stackPrice),
+                    1, 1, 1, 1, 1, 1
+                )
+                tt:Show()
+            end
+            return
+        end
+
         -- Always normalize the native Sell Price row, including single items.
         -- This gives Forever tooltips one consistent vendor-price presentation.
         FormatForeverSellPriceRow(tt, stackPrice)
