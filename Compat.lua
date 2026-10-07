@@ -46,6 +46,71 @@ function Compat.GetContainerItemInfo(bag, slot)
     end
 end
 
+-- Secret/protected values can be passed through addon code but must not be
+-- inspected, compared, converted, or used in arithmetic unless readable.
+-- Prefer canaccessvalue when available; older clients simply treat ordinary
+-- values as readable.
+function Compat.CanAccessValue(value)
+    if canaccessvalue then
+        local ok, allowed = pcall(canaccessvalue, value)
+        return ok and allowed and true or false
+    end
+
+    if issecretvalue then
+        local ok, secret = pcall(issecretvalue, value)
+        return ok and not secret
+    end
+
+    return value ~= nil
+end
+
+function Compat.CanAccessNumber(value)
+    return type(value) == "number" and Compat.CanAccessValue(value)
+end
+
+-- Action-bar counts can become secret in combat. For item actions only, recover
+-- the usable inventory count from GetItemCount/C_Item.GetItemCount. Do not use
+-- this fallback for bag slots, mail attachments, or other individual stacks,
+-- where the total inventory count could describe a different quantity.
+function Compat.GetItemCount(item)
+    if not Compat.CanAccessValue(item) or item == nil then
+        return nil
+    end
+
+    local itemInfo = item
+    if type(item) == "string" then
+        local id = item:match("item:(%d+)")
+        if id then
+            itemInfo = tonumber(id)
+        end
+    end
+
+    local getter = (C_Item and C_Item.GetItemCount) or GetItemCount
+    if type(getter) ~= "function" then
+        return nil
+    end
+
+    local ok, count = pcall(getter, itemInfo, false, true)
+    if ok then
+        return count
+    end
+end
+
+function Compat.ResolveStackCount(count, item, recoverFromInventory)
+    if Compat.CanAccessNumber(count) then
+        return count
+    end
+
+    if recoverFromInventory then
+        local bagCount = Compat.GetItemCount(item)
+        if Compat.CanAccessNumber(bagCount) then
+            return bagCount
+        end
+    end
+
+    return 1
+end
+
 function Compat.IsAddOnLoaded(addonName)
     if C_AddOns and C_AddOns.IsAddOnLoaded then
         return C_AddOns.IsAddOnLoaded(addonName)

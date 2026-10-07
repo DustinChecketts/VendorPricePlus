@@ -34,6 +34,22 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Verify TOC version
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          VERSION="${VERSION#v}"
+          TOC_VERSION="$(sed -n 's/^## Version:[[:space:]]*//p' VendorPricePlus.toc | head -n 1 | tr -d '\r')"
+
+          if [ "$TOC_VERSION" != "$VERSION" ]; then
+            echo "Release version $VERSION does not match VendorPricePlus.toc version $TOC_VERSION."
+            echo "Update ## Version in VendorPricePlus.toc before publishing."
+            exit 1
+          fi
+
+          echo "Verified VendorPricePlus.toc version $TOC_VERSION."
+
       - name: Create release tag
         if: github.event_name == 'workflow_dispatch'
         env:
