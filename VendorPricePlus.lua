@@ -198,30 +198,6 @@ if Compat.IsForever()
             return
         end
 
-        -- When Auctionator is loaded on Forever, let Auctionator own the
-        -- per-unit Vendor and Auction rows. VPP mirrors its established Classic
-        -- integration by contributing only the full-stack Vendor row for
-        -- stackable bag/inventory items.
-        --
-        -- Auctionator clears/replaces Blizzard's native Sell Price on supported
-        -- tooltip surfaces, so do not rewrite that row into VPP's Forever
-        -- Sell Price / Unit Price presentation when the integration is active.
-        if IsAuctionatorLoaded() and contextKey == "inventoryBank" then
-            local owner = tt.GetOwner and tt:GetOwner()
-            local count = owner and tonumber(owner.count) or 1
-
-            if count >= 2 then
-                local stackText = format("Vendor |cff88ccffx%d|r", count)
-                tt:AddDoubleLine(
-                    NORMAL_FONT_COLOR:WrapTextInColorCode(stackText),
-                    FormatMoneyWithIcons(stackPrice),
-                    1, 1, 1, 1, 1, 1
-                )
-                tt:Show()
-            end
-            return
-        end
-
         -- Standardize Forever on the same terminology used by VPP on Classic:
         -- Vendor is the per-unit value and Vendor xN is the full stack value.
         -- Blizzard's native Sell Price line is therefore only an input value; VPP
@@ -240,23 +216,14 @@ if Compat.IsForever()
             -- hyperlink, which can identify a related item for recipes.
             unitPrice = floor(stackPrice / count)
 
-            -- Auctionator owns the per-unit Vendor and Auction rows when present.
-            -- VPP contributes only Vendor xN for genuine stacks.
-            if IsAuctionatorLoaded() then
-                if count >= 2 then
-                    local stackText = format("Vendor |cff88ccffx%d|r", count)
-                    tt:AddDoubleLine(
-                        NORMAL_FONT_COLOR:WrapTextInColorCode(stackText),
-                        FormatMoneyWithIcons(stackPrice),
-                        1, 1, 1, 1, 1, 1
-                    )
-                    tt:Show()
-                end
-                return
-            end
+            -- Whether or not Auctionator is loaded, VPP owns the native
+            -- Blizzard Sell Price row on Forever. Rewrite it as the clean
+            -- per-unit Vendor row. Auctionator may then contribute its Auction
+            -- row, while VPP contributes Vendor xN below for genuine stacks.
+            --
+            -- This deliberately avoids leaving Blizzard's Sell Price visible
+            -- alongside Auctionator's Vendor/Auction information.
 
-            -- Without Auctionator, replace Blizzard's Sell Price presentation
-            -- with VPP's established Vendor / Vendor xN convention.
             local tooltipName = tt.GetName and tt:GetName()
             if tooltipName and tt.NumLines then
                 for i = 1, tt:NumLines() do
