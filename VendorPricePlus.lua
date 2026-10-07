@@ -237,33 +237,16 @@ if Compat.IsForever()
                     end
                 end
 
-                -- Auctionator's item-tooltip post-call runs after Blizzard has
-                -- finished the native tooltip and appends Vendor/Auction there.
-                -- Defer VPP's stack row to the next frame so it follows those
-                -- rows instead of interrupting Auctionator's normal presentation.
-                if count >= 2 and C_Timer and C_Timer.After then
-                    local stackText = format("Vendor |cff88ccffx%d|r", count)
-                    local stackValue = FormatMoneyWithIcons(stackPrice)
-                    C_Timer.After(0, function()
-                        if not tt or not tt.IsShown or not tt:IsShown() then return end
-
-                        -- Make sure this is still the same item tooltip before
-                        -- mutating it after the deferred callback.
-                        local currentItem
-                        if type(tt.GetItem) == "function" then
-                            currentItem = select(2, tt:GetItem())
-                        end
-                        if currentItem and item and currentItem ~= item then
-                            return
-                        end
-
-                        tt:AddDoubleLine(
-                            NORMAL_FONT_COLOR:WrapTextInColorCode(stackText),
-                            stackValue,
-                            1, 1, 1, 1, 1, 1
-                        )
-                        tt:Show()
-                    end)
+                -- Preserve Auctionator's normal Vendor/Auction ordering, then
+                -- append VPP's stack total. Queue the row until the tooltip's
+                -- OnUpdate so Auctionator's post-call has completed, but keep the
+                -- pending data on the tooltip instead of relying on a timer whose
+                -- item identity can differ between tooltip API representations.
+                if count >= 2 then
+                    tt.__VendorPricePlusPendingAuctionatorStack = {
+                        text = format("Vendor |cff88ccffx%d|r", count),
+                        value = FormatMoneyWithIcons(stackPrice),
+                    }
                 end
                 return
             end
@@ -320,6 +303,30 @@ if Compat.IsForever()
 
         CompactForeverPriceRows(tt, stackPrice, unitPrice)
     end)
+end
+
+-- Auctionator appends its Vendor/Auction rows in the completed item-tooltip
+-- callback. Flush our pending stack row on the tooltip's next update so VPP is
+-- supplemental and appears after Auctionator rather than interrupting it.
+if GameTooltip and GameTooltip.HookScript then
+    GameTooltip:HookScript("OnUpdate", function(tt)
+        local pending = tt.__VendorPricePlusPendingAuctionatorStack
+        if not pending then return end
+
+        tt.__VendorPricePlusPendingAuctionatorStack = nil
+        tt:AddDoubleLine(
+            NORMAL_FONT_COLOR:WrapTextInColorCode(pending.text),
+            pending.value,
+            1, 1, 1, 1, 1, 1
+        )
+        tt:Show()
+    end)
+
+    if GameTooltip.HasScript and GameTooltip:HasScript("OnHide") then
+        GameTooltip:HookScript("OnHide", function(tt)
+            tt.__VendorPricePlusPendingAuctionatorStack = nil
+        end)
+    end
 end
 
 function VP:SetPrice(tt, _, source, count, item)
