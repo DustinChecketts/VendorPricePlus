@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.2.3
+
+### WoW Forever
+- Standardized bag and inventory vendor-price labels on `Vendor` and `Vendor xN`.
+- Added Forever Auctionator coexistence so Auctionator can provide its per-unit Vendor and Auction rows while VendorPricePlus adds the full-stack `Vendor xN` value.
+
+### Compatibility
+- Hardened stack-price calculations against protected/secret numeric values.
+- Action-bar item counts on supported legacy tooltip paths can recover a readable inventory count without performing arithmetic on a protected `GetActionCount()` value.
+- Falls back safely when a readable stack count is unavailable instead of allowing a protected value into price arithmetic.
+
+### Community
+- Incorporated the defensive secret-count approach reported and prototyped by Dirtimoney, adapted to VendorPricePlus's current compatibility architecture.
+
 ## 1.2.2
 
 ### WoW Forever
