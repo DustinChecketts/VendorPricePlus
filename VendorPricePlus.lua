@@ -309,13 +309,21 @@ if Compat.IsForever()
     end)
 end
 
-function VP:SetPrice(tt, _, _, count, item)
-    count = count or 1
-    item = item or select(2, tt:GetItem())
+function VP:SetPrice(tt, _, source, count, item)
+    -- Resolve the item before the count. Action-bar callers can provide an item
+    -- ID even when GetActionCount() itself is protected.
+    if not item and tt and type(tt.GetItem) == "function" then
+        item = select(2, tt:GetItem())
+    end
 
-    if item then
+    -- Never allow an unreadable/secret count to reach arithmetic. Item actions
+    -- may safely recover the equivalent inventory count; other contexts fall
+    -- back to one rather than substituting an unrelated bag total.
+    count = Compat.ResolveStackCount(count, item, source == "SetAction")
+
+    if item and Compat.CanAccessValue(item) then
         local sellPrice = select(11, Compat.GetItemInfo(item))
-        if sellPrice and sellPrice > 0 then
+        if Compat.CanAccessNumber(sellPrice) and sellPrice > 0 then
             local stackPrice = sellPrice * count
             local unitPrice = sellPrice
 
@@ -360,15 +368,21 @@ end
 -- Legacy/public tooltip setters shared by the supported WoW clients.
 local SetItem = {
     SetAction = function(tt, slot)
-        if GetActionInfo(slot) == "item" then
-            -- Forever can return a secret/protected count from GetActionCount().
-            -- The modern SellPrice tooltip pipeline already handles action-bar
-            -- item tooltips, so never pass that protected value into legacy
-            -- arithmetic in SetPrice().
+        local actionType, itemID = GetActionInfo(slot)
+        if actionType == "item" then
+            -- Forever uses the modern SellPrice pipeline for action-bar items and
+            -- must not inspect GetActionCount(), which can be secret in combat.
             if Compat.IsForever() then
                 return
             end
-            VP:SetPrice(tt, true, "SetAction", GetActionCount(slot))
+
+            -- Other supported clients can expose the same protected action count.
+            -- Pass the item identity so SetPrice can recover a readable inventory
+            -- count without performing arithmetic on GetActionCount().
+            if not Compat.CanAccessNumber(itemID) then
+                itemID = nil
+            end
+            VP:SetPrice(tt, true, "SetAction", GetActionCount(slot), itemID)
         end
     end,
     SetAuctionItem = function(tt, auctionType, index)
