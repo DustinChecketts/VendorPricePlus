@@ -237,14 +237,33 @@ if Compat.IsForever()
                     end
                 end
 
-                if count >= 2 then
+                -- Auctionator's item-tooltip post-call runs after Blizzard has
+                -- finished the native tooltip and appends Vendor/Auction there.
+                -- Defer VPP's stack row to the next frame so it follows those
+                -- rows instead of interrupting Auctionator's normal presentation.
+                if count >= 2 and C_Timer and C_Timer.After then
                     local stackText = format("Vendor |cff88ccffx%d|r", count)
-                    tt:AddDoubleLine(
-                        NORMAL_FONT_COLOR:WrapTextInColorCode(stackText),
-                        FormatMoneyWithIcons(stackPrice),
-                        1, 1, 1, 1, 1, 1
-                    )
-                    tt:Show()
+                    local stackValue = FormatMoneyWithIcons(stackPrice)
+                    C_Timer.After(0, function()
+                        if not tt or not tt.IsShown or not tt:IsShown() then return end
+
+                        -- Make sure this is still the same item tooltip before
+                        -- mutating it after the deferred callback.
+                        local currentItem
+                        if type(tt.GetItem) == "function" then
+                            currentItem = select(2, tt:GetItem())
+                        end
+                        if currentItem and item and currentItem ~= item then
+                            return
+                        end
+
+                        tt:AddDoubleLine(
+                            NORMAL_FONT_COLOR:WrapTextInColorCode(stackText),
+                            stackValue,
+                            1, 1, 1, 1, 1, 1
+                        )
+                        tt:Show()
+                    end)
                 end
                 return
             end
