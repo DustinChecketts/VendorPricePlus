@@ -216,14 +216,41 @@ if Compat.IsForever()
             -- hyperlink, which can identify a related item for recipes.
             unitPrice = floor(stackPrice / count)
 
-            -- Whether or not Auctionator is loaded, VPP owns the native
-            -- Blizzard Sell Price row on Forever. Rewrite it as the clean
-            -- per-unit Vendor row. Auctionator may then contribute its Auction
-            -- row, while VPP contributes Vendor xN below for genuine stacks.
-            --
-            -- This deliberately avoids leaving Blizzard's Sell Price visible
-            -- alongside Auctionator's Vendor/Auction information.
+            -- Auctionator already supplies the per-unit Vendor row. When it is
+            -- active, remove Blizzard's native Sell Price row instead of rewriting
+            -- it into a second Vendor row. VPP then contributes only Vendor xN;
+            -- Auctionator contributes Vendor and Auction.
+            if IsAuctionatorLoaded() then
+                local tooltipName = tt.GetName and tt:GetName()
+                if tooltipName and tt.NumLines then
+                    for i = 1, tt:NumLines() do
+                        local left = _G[tooltipName .. "TextLeft" .. i]
+                        local right = _G[tooltipName .. "TextRight" .. i]
+                        local text = left and left:GetText()
+                        if text and text:find(SELL_PRICE_TEXT, 1, true) == 1 then
+                            left:SetText("")
+                            if right then
+                                right:SetText("")
+                            end
+                            break
+                        end
+                    end
+                end
 
+                if count >= 2 then
+                    local stackText = format("Vendor |cff88ccffx%d|r", count)
+                    tt:AddDoubleLine(
+                        NORMAL_FONT_COLOR:WrapTextInColorCode(stackText),
+                        FormatMoneyWithIcons(stackPrice),
+                        1, 1, 1, 1, 1, 1
+                    )
+                    tt:Show()
+                end
+                return
+            end
+
+            -- Without Auctionator, VPP rewrites Blizzard's Sell Price row as
+            -- Vendor and adds Vendor xN for genuine stacks.
             local tooltipName = tt.GetName and tt:GetName()
             if tooltipName and tt.NumLines then
                 for i = 1, tt:NumLines() do
