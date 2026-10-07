@@ -4,7 +4,8 @@
 
 ### WoW Forever
 - Standardized bag and inventory vendor-price labels on `Vendor` and `Vendor xN`.
-- Added Forever Auctionator coexistence so Auctionator can provide its per-unit Vendor and Auction rows while VendorPricePlus adds the full-stack `Vendor xN` value.
+- Added Forever Auctionator coexistence with a clean three-row presentation: `Vendor`, `Auction`, and `Vendor xN` for stacks.
+- Removed the redundant native `Sell Price` presentation when Auctionator and VendorPricePlus are both active.
 
 ### Compatibility
 - Hardened stack-price calculations against protected/secret numeric values.
