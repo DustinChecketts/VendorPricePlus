@@ -342,6 +342,42 @@ if Compat.IsForever() and TooltipDataProcessor
     end)
 end
 
+-- Forever quest rewards can render their Sell Price after the modern item
+-- post-call, and their tooltip owner may not contain "Quest" in its name.
+-- Resolve the actual quest-reward ancestry on hover and change only the label.
+-- This is a display-only fallback; never change Blizzard's money amount.
+if Compat.IsForever() and GameTooltip and GameTooltip.HookScript then
+    GameTooltip:HookScript("OnUpdate", function(tt)
+        if not VP:IsContextEnabled("questRewards") then return end
+        local owner = tt.GetOwner and tt:GetOwner()
+        if not owner then return end
+        local inQuestRewards = false
+        local node = owner
+        for _ = 1, 12 do
+            if not node then break end
+            local name = node.GetName and node:GetName() or ""
+            if name:find("QuestInfoRewards", 1, true)
+                or name:find("QuestMapFrame", 1, true)
+                or name:find("QuestLogPopupDetailFrame", 1, true) then
+                inQuestRewards = true
+                break
+            end
+            node = node.GetParent and node:GetParent()
+        end
+        if not inQuestRewards then return end
+        local tooltipName = tt.GetName and tt:GetName()
+        if not tooltipName then return end
+        for i = 1, tt:NumLines() do
+            local left = _G[tooltipName .. "TextLeft" .. i]
+            local label = left and left:GetText()
+            if type(label) == "string" and label:find(SELL_PRICE_TEXT, 1, true) == 1 then
+                left:SetText(NORMAL_FONT_COLOR:WrapTextInColorCode("Vendor"))
+                return
+            end
+        end
+    end)
+end
+
 -- Auctionator appends its Vendor/Auction rows in the completed item-tooltip
 -- callback. Flush our pending stack row on the tooltip's next update so VPP is
 -- supplemental and appears after Auctionator rather than interrupting it.
