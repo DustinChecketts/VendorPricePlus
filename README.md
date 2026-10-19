@@ -1,61 +1,54 @@
 # Vendor Price Plus
 
-Vendor Price Plus is a lightweight World of Warcraft addon that makes vendor values easier to read without adding unnecessary bulk to item tooltips.
+**Version 1.2.4 (release candidate)**
 
-Version 1.2.0 adds support for **WoW Forever** while preserving the addon's established behavior for **TBC Anniversary** and **Classic Era**. Retail and Mists of Pandaria Classic are not currently tested or advertised as supported.
+Vendor Price Plus is a lightweight World of Warcraft addon that makes vendor values easier to read while preserving Blizzard's familiar item tooltips.
 
 ## Features
 
-### WoW Forever
+- Displays vendor values in supported item tooltips, using **Vendor** for an individual item and **Vendor xN** for a stack when its count is available.
+- Supports Inventory & Bank, Mail, Merchant & Buyback, Professions, Quest Rewards, and Auction House tooltips, subject to client capabilities.
+- Provides a Blizzard AddOns options panel to choose where vendor pricing appears. All supported contexts are enabled by default; **Defaults** restores these settings.
+- Leaves Blizzard's native tooltip behavior in place when a context is disabled.
+- Coexists with Auctionator without intentionally duplicating its vendor-price rows or disrupting its usual ordering.
+- Retains the same independently installable addon across supported Classic clients and WoW Forever.
 
-- Keeps Blizzard's native **Sell Price** and presents it in a consistent, compact format.
-- Adds **Unit Price** directly below Sell Price when a tooltip represents more than one item.
-- Right-aligns money values so gold, silver, and copper denominations are easy to scan.
-- Keeps single-item tooltips simple: Sell Price is formatted consistently without adding a redundant Unit Price.
-- Enhances supported Inventory & Bank, Mail, Merchant & Buyback, Profession, and Quest Reward tooltip contexts.
-- Leaves the Auction House unchanged because Forever already displays the correct per-unit vendor value there.
-- Includes an AddOns settings panel with per-context controls, enabled by default.
-
-### TBC Anniversary and Classic Era
-
-Vendor Price Plus retains its established Classic behavior:
-
-- Displays the vendor value per item.
-- Displays the total vendor value of a stack.
-- Integrates with Blizzard's default tooltip UI.
-- Supports Auctionator-aware tooltip behavior.
+Exact tooltip behavior may vary by client and context. In WoW Forever, vendor-price formatting uses the client's modern tooltip processing path. In Classic clients, the addon preserves the relevant legacy tooltip behavior.
 
 ## Commands
 
-- `/vpp` — Opens Vendor Price Plus settings on WoW Forever.
+- `/vpp` — Open Vendor Price Plus settings.
 
 ## Compatibility
 
-| Client | Status |
+| Client | Version 1.2.4 status |
 | --- | --- |
-| WoW Forever | Supported |
-| TBC Anniversary | Supported |
-| Classic Era / Hardcore / Season of Discovery | Supported; Classic Era regression tested successfully for 1.2.0 |
-| Mists of Pandaria Classic | Not currently tested/supported |
-| Retail | Not currently tested/supported |
+| WoW Forever | Tested during release-candidate development, including quest rewards |
+| TBC Anniversary | Previously supported; final 1.2.4 regression test pending |
+| Classic Era | Previously supported; final 1.2.4 regression test pending |
+| Classic Era Hardcore and seasonal variants | Expected to follow Classic Era behavior; not separately verified for 1.2.4 |
+| Mists of Pandaria Classic | Not tested or advertised as supported |
+| Retail | Not tested or advertised as supported |
+
+The TBC Anniversary quest-log reward tooltip may display the unit vendor value without a total stack value. See [CHANGELOG.md](CHANGELOG.md) for release history and known limitations.
 
 ## Acknowledgements
 
-Vendor Price Plus includes functionality derived from the original **Vendor Price** addon by Ketho17 and Icesythe7. Their historical author credits remain in the addon metadata.
+Vendor Price Plus builds on the original **Vendor Price** addon by Ketho17 and Icesythe7. Historical author credits remain in the addon metadata.
 
 ## Development
 
-Vendor Price Plus is authored, maintained, and published by **StormtrooperTK421**. Development and modernization work is performed with assistance from OpenAI's ChatGPT, including code implementation, compatibility work, testing support, and documentation.
+Vendor Price Plus is authored, maintained, and published by **StormtrooperTK421**, with development assistance from OpenAI's ChatGPT.
 
-The code is intentionally separated by responsibility:
+The code is organized by responsibility:
 
-- `Compat.lua` — client/API compatibility
+- `Compat.lua` — client and API compatibility
 - `Options.lua` — settings and saved preferences
 - `VendorPricePlus.lua` — core tooltip behavior
-- `Integrations.lua` — third-party addon integrations
+- `Integrations.lua` — third-party addon integration
 
-Issues and pull requests are welcome. Code is commented where behavior or compatibility decisions may not be obvious to future contributors.
+Development follows the shared [StormCore standards](https://github.com/DustinChecketts/stormcore). Issues and pull requests are welcome.
 
 ## License
 
-Vendor Price Plus is released under the MIT License.
+MIT License.
