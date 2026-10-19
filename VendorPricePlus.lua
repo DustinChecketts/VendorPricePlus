@@ -329,6 +329,23 @@ if GameTooltip and GameTooltip.HookScript then
     end
 end
 
+-- Hide Blizzard's redundant native Sell Price text only when VPP actually
+-- supplies its own Vendor row. This is presentation-only and does not modify
+-- the underlying sell value or merchant transaction.
+local function HideLegacySellPrice(tt)
+    local tooltipName = tt and tt.GetName and tt:GetName()
+    if not tooltipName or not tt.NumLines then return end
+    for line = 1, tt:NumLines() do
+        local left = _G[tooltipName .. "TextLeft" .. line]
+        local label = left and left:GetText()
+        if type(label) == "string" and label:find(SELL_PRICE_TEXT, 1, true) == 1 then
+            left:SetText("")
+            local right = _G[tooltipName .. "TextRight" .. line]
+            if right then right:SetText("") end
+        end
+    end
+end
+
 function VP:SetPrice(tt, _, source, count, item)
     -- Resolve the item before the count. Action-bar callers can provide an item
     -- ID even when GetActionCount() itself is protected.
@@ -385,6 +402,11 @@ function VP:SetPrice(tt, _, source, count, item)
                 end
             end
 
+            -- Auctionator already provides the unit Vendor row for singles.
+            -- Keep Blizzard's native line if VPP contributed no replacement.
+            if not IsAuctionatorLoaded() or count >= 2 then
+                HideLegacySellPrice(tt)
+            end
             tt:Show()
         end
     end
@@ -485,24 +507,7 @@ if not Compat.IsForever() then
                 local count = config.count and config.count(...) or 1
                 VP:SetPrice(tt, false, method, count)
 
-                -- On Classic buyback tooltips Blizzard can leave its native
-                -- Sell Price line visible alongside our Vendor/Vendor xN rows.
-                -- Clear only that redundant display line, never the actual
-                -- merchant price or other money fields.
-                if method == "SetBuybackItem" and tt.__VendorPricePlusLegacyPriceAdded then
-                    local tooltipName = tt.GetName and tt:GetName()
-                    if tooltipName and tt.NumLines then
-                        for line = 1, tt:NumLines() do
-                            local left = _G[tooltipName .. "TextLeft" .. line]
-                            local right = _G[tooltipName .. "TextRight" .. line]
-                            local label = left and left:GetText()
-                            if type(label) == "string" and label:find(SELL_PRICE_TEXT, 1, true) == 1 then
-                                left:SetText("")
-                                if right then right:SetText("") end
-                            end
-                        end
-                    end
-                end
+
             end)
         end
     end
