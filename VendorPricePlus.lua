@@ -490,11 +490,16 @@ if not Compat.IsForever() then
             end
         end },
         SetInboxItem = { key = "mail", count = function(index, attachment)
-            -- GetInboxItem returns name, itemID, texture, count, quality, ...
+            -- Era's tooltip setter can be called with only the message index.
+            -- Blizzard's GetInboxItem requires a separate attachment slot;
+            -- never pass nil (the tooltip refreshes frequently on hover).
+            if type(index) ~= "number" then return 1 end
+            if type(attachment) ~= "number" then attachment = 1 end
             if type(GetInboxItem) == "function" then
                 local _, _, _, count = GetInboxItem(index, attachment)
                 return count
             end
+            return 1
         end },
         SetQuestItem = { key = "questRewards" },
         SetQuestLogItem = { key = "questRewards" },
