@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.2.4 (release candidate)
+
+### Classic Era, Hardcore, Season of Discovery, and TBC Anniversary
+- Expanded vendor pricing to supported item tooltips across inventory and bank, mail, merchants and buyback, professions, quest rewards, and the Auction House.
+- Added per-context options with saved preferences and a Defaults button.
+- Preserved Blizzard's native tooltip behavior when a context is disabled.
+- Known limitation: TBC Anniversary quest-log reward stacks may show only the unit Vendor price.
+
+### WoW Forever
+- Standardized supported item tooltips on Vendor and Vendor xN labels, including mail, professions, buyback, Auction House, and quest rewards.
+- Corrected the Map & Quest Log reward tooltip to use Vendor instead of Sell Price.
+- Kept Blizzard's native price values and preserved existing Auctionator integration.
+- Removed unused Forever tooltip formatting helpers and superseded quest-reward workarounds.
+
+### Architecture
+- Continued shared Compat.lua, Options.lua, and VendorPricePlus.lua architecture across supported clients.
+- Classic Era and TBC Anniversary regression testing pending for this release candidate.
+
 ## 1.2.3
 
 ### WoW Forever
