@@ -112,7 +112,7 @@ local function CreateOptionsPanel(self)
     note:SetPoint("TOPLEFT", lastCheck, "BOTTOMLEFT", 4, -18)
     note:SetWidth(500)
     note:SetJustifyH("LEFT")
-    note:SetText("All supported tooltip contexts are enabled by default. The Auction House already shows Blizzard's correct per-unit Sell Price, so VendorPricePlus leaves it unchanged.")
+    note:SetText("All tooltip contexts are enabled by default. Uncheck a context to disable VendorPricePlus pricing there.")
 end
 
 panel:SetScript("OnShow", function(self)
