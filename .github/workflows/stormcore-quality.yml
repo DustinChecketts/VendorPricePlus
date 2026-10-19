@@ -1,106 +1,17 @@
-name: StormCore quality checks (manual audit)
+# StormCore validation pilot. After approval, pin to a reviewed StormCore commit on main.
+name: StormCore quality checks
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - feature/stormcore-shared-validation
 
 permissions:
   contents: read
 
 jobs:
   quality:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check out addon
-        uses: actions/checkout@v4
-
-      - name: Install Lua 5.1 and Luacheck
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y lua5.1 luarocks
-          sudo luarocks install luacheck
-
-      - name: Validate Lua syntax
-        shell: bash
-        run: |
-          set -euo pipefail
-          count=0
-          while IFS= read -r -d '' file; do
-            luac5.1 -p "$file"
-            count=$((count + 1))
-          done < <(find . -type f -name '*.lua' -not -path './.git/*' -print0)
-          test "$count" -gt 0
-          echo "Validated $count Lua files"
-
-      - name: Check TOC references and release metadata
-        shell: bash
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          import re
-          import sys
-          root = Path(".")
-          errors = []
-          tocs = list(root.glob("*.toc"))
-          if not tocs:
-              errors.append("Missing root-level .toc file")
-          versions = set()
-          for toc in tocs:
-              for line_number, raw in enumerate(toc.read_text(encoding="utf-8-sig").splitlines(), 1):
-                  line = raw.strip()
-                  if line.lower().startswith("## version:"):
-                      versions.add(line.split(":", 1)[1].strip())
-                  elif line and not line.startswith("#"):
-                      relative = line.replace(chr(92), "/")
-                      if relative.startswith("/") or ".." in Path(relative).parts or not (root / relative).is_file():
-                          errors.append(f"{toc}:{line_number}: missing or invalid {line}")
-          if len(versions) != 1:
-              errors.append(f"Expected one consistent TOC version; found {sorted(versions)}")
-          else:
-              version = next(iter(versions))
-              changelog = root / "CHANGELOG.md"
-              if changelog.is_file() and not re.search(r"(?m)^#{1,4}\s*\[?v?" + re.escape(version) + r"\b", changelog.read_text(encoding="utf-8")):
-                  errors.append(f"CHANGELOG missing heading for version {version}")
-              print(f"TOC version: {version}")
-          for error in errors:
-              print("ERROR:", error)
-          sys.exit(bool(errors))
-          PY
-
-      - name: Check package exclusions
-        shell: bash
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          import re
-          import sys
-          root = Path(".")
-          meta = root / ".pkgmeta"
-          if not meta.is_file():
-              sys.exit("Missing .pkgmeta")
-          content = meta.read_text(encoding="utf-8")
-          match = re.search(r"(?ms)^ignore:\s*\n((?:[ \t]+-.*\n|[ \t]*\n)*)", content + "\n")
-          ignored = {line.strip()[1:].strip().strip("'\"").rstrip("/")
-                     for line in match.group(1).splitlines() if line.strip().startswith("-")} if match else set()
-          dev_paths = {".github", "AGENTS.md", "ARCHITECTURE.md", "scripts", "standards", "tests", "Tests", ".gitignore", ".gitattributes"}
-          missing = sorted(p.name for p in root.iterdir() if p.name in dev_paths and p.name not in ignored)
-          if missing:
-              sys.exit("Not excluded in .pkgmeta: " + ", ".join(missing))
-          print(".pkgmeta development exclusions verified")
-          PY
-
-      - name: Static analysis (advisory)
-        continue-on-error: true
-        shell: bash
-        run: |
-          find . -name '*.lua' -type f -not -path './.git/*' -print0 |
-            xargs -0 -r luacheck --config .github/luacheckrc --codes --no-color --no-max-line-length
-
-      - name: Install StyLua
-        run: cargo install stylua --version 2.1.0 --locked
-
-      - name: Formatting (advisory)
-        continue-on-error: true
-        shell: bash
-        run: |
-          find . -name '*.lua' -type f -not -path './.git/*' -print0 |
-            xargs -0 -r stylua --check --config-path stylua.toml
+    uses: DustinChecketts/stormcore/.github/workflows/validate-addon.yml@feature/addon-local-quality-config
+    with:
+      strict: false
