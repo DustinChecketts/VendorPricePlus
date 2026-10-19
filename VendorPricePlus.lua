@@ -367,6 +367,28 @@ function VP:SetPrice(tt, _, source, count, item)
     -- Never allow an unreadable/secret count to reach arithmetic. Item actions
     -- may safely recover the equivalent inventory count; other contexts fall
     -- back to one rather than substituting an unrelated bag total.
+    -- Legacy quest-log tooltips can pass through a generic item setter before
+    -- the quest-specific setter runs. Resolve the actual reward quantity here,
+    -- before the once-per-tooltip guard, using the tooltip owner where possible.
+    if not Compat.IsForever() and VP:IsContextEnabled("questRewards") and tt and tt.GetOwner then
+        local owner = tt:GetOwner()
+        local parent = owner and owner.GetParent and owner:GetParent()
+        local ownerName = owner and owner.GetName and owner:GetName() or ""
+        local parentName = parent and parent.GetName and parent:GetName() or ""
+        local isQuestLog = source == "SetQuestLogItem"
+            or ownerName:find("QuestLog", 1, true)
+            or parentName:find("QuestLog", 1, true)
+        if isQuestLog and type(GetQuestLogItemInfo) == "function" then
+            local rewardType = owner and owner.type or "reward"
+            local rewardIndex = owner and owner.GetID and owner:GetID()
+            if type(rewardIndex) == "number" and rewardIndex > 0 then
+                local _, _, rewardCount = GetQuestLogItemInfo(rewardType, rewardIndex)
+                if type(rewardCount) == "number" and rewardCount > 1 then
+                    count = rewardCount
+                end
+            end
+        end
+    end
     count = Compat.ResolveStackCount(count, item, source == "SetAction")
 
     if item and Compat.CanAccessValue(item) then
