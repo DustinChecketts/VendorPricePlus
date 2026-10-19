@@ -7,4 +7,10 @@ manual-changelog:
 ignore:
   - .github
   - .gitignore
+  - .gitattributes
+  - AGENTS.md
   - ARCHITECTURE.md
+  - standards
+  - Tests
+  - tests
+  - scripts

@@ -8,7 +8,7 @@ VendorPricePlus = VendorPricePlus or {}
 local VP = VendorPricePlus
 local Compat = VP.Compat
 
--- Every supported Forever tooltip surface is enabled on first install. These
+-- Every supported tooltip context is enabled on first install. These
 -- switches are primarily here so players can opt out of a specific enhancement.
 local CONTEXT_DEFAULTS = {
     inventoryBank = true,
@@ -16,6 +16,7 @@ local CONTEXT_DEFAULTS = {
     merchant = true,
     professions = true,
     questRewards = true,
+    auctionHouse = true,
 }
 
 function VP:EnsureSettingsDefaults()
@@ -39,14 +40,16 @@ function VP:SetContextEnabled(key, enabled)
     VendorPricePlusDB.contexts[key] = enabled and true or false
 end
 
--- The current context controls are Forever-specific because the older clients
--- use VendorPricePlus's established tooltip behavior. Shared display settings
--- can be added here later without mixing them into client compatibility code.
-if not Compat.IsForever() then
-    return
-end
-
-VP:EnsureSettingsDefaults()
+-- Register settings on every supported client. SavedVariables are initialized
+-- after ADDON_LOADED, not while Lua files are first evaluated.
+local loader = CreateFrame("Frame")
+loader:RegisterEvent("ADDON_LOADED")
+loader:SetScript("OnEvent", function(self, _, addonName)
+    if addonName == "VendorPricePlus" then
+        VP:EnsureSettingsDefaults()
+        self:UnregisterEvent("ADDON_LOADED")
+    end
+end)
 
 local panel = CreateFrame("Frame", "VendorPricePlusOptionsPanel")
 panel.name = "VendorPricePlus"
@@ -63,11 +66,11 @@ local function CreateOptionsPanel(self)
 
     local subtitle = self:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
     subtitle:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -8)
-    subtitle:SetText("Choose where VendorPricePlus adds clearer vendor pricing.")
+    subtitle:SetText("Choose where you\'d like to see vendor prices. All options are enabled by default.")
 
     local heading = self:CreateFontString(nil, "ARTWORK", "GameFontNormal")
     heading:SetPoint("TOPLEFT", subtitle, "BOTTOMLEFT", 0, -22)
-    heading:SetText("Show Unit Price In")
+    heading:SetText("Show Vendor Pricing In")
 
     local choices = {
         { key = "inventoryBank", label = "Inventory & Bank" },
@@ -75,14 +78,15 @@ local function CreateOptionsPanel(self)
         { key = "merchant", label = "Merchant & Buyback" },
         { key = "professions", label = "Professions" },
         { key = "questRewards", label = "Quest Rewards" },
+        { key = "auctionHouse", label = "Auction House" },
     }
 
     -- Anchor every checkbox to the panel, rather than to the previous checkbox.
     -- This keeps the controls in a perfectly straight column and makes spacing
     -- predictable if labels or rows are changed later.
     local firstY = -118
-    local rowSpacing = 52
-    local lastCheck
+    local rowSpacing = 46
+    local checks = {}
 
     for index, choice in ipairs(choices) do
         local check = CreateFrame("CheckButton", nil, self, "UICheckButtonTemplate")
@@ -97,17 +101,32 @@ local function CreateOptionsPanel(self)
             VP:SetContextEnabled(choice.key, button:GetChecked())
         end)
 
-        lastCheck = check
+        checks[#checks + 1] = { button = check, key = choice.key }
     end
 
-    local note = self:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
-    note:SetPoint("TOPLEFT", lastCheck, "BOTTOMLEFT", 4, -18)
-    note:SetWidth(500)
-    note:SetJustifyH("LEFT")
-    note:SetText("All supported tooltip contexts are enabled by default. The Auction House already shows Blizzard's correct per-unit Sell Price, so VendorPricePlus leaves it unchanged.")
+    self.vppChecks = checks
+
+    local defaultsButton = CreateFrame("Button", nil, self, "UIPanelButtonTemplate")
+    defaultsButton:SetSize(110, 24)
+    defaultsButton:SetPoint("TOPRIGHT", self, "TOPRIGHT", -18, -16)
+    defaultsButton:SetText("Defaults")
+    defaultsButton:SetScript("OnClick", function()
+        for key, defaultValue in pairs(CONTEXT_DEFAULTS) do
+            VP:SetContextEnabled(key, defaultValue)
+        end
+        for _, row in ipairs(self.vppChecks) do
+            row.button:SetChecked(VP:IsContextEnabled(row.key))
+        end
+    end)
 end
 
-panel:SetScript("OnShow", CreateOptionsPanel)
+panel:SetScript("OnShow", function(self)
+    CreateOptionsPanel(self)
+    -- Refresh checkboxes when reopening after an external settings change.
+    for _, row in ipairs(self.vppChecks or {}) do
+        row.button:SetChecked(VP:IsContextEnabled(row.key))
+    end
+end)
 
 -- Prefer the modern Settings API, while retaining the legacy registration path
 -- for clients that still expose InterfaceOptions_AddCategory.

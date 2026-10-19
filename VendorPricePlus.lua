@@ -17,28 +17,12 @@ end
 
 -- Constants
 local SELL_PRICE_TEXT = format("%s:", SELL_PRICE)
-local overridePrice
 
 -- First keyring inventory slot
 local FIRST_KEYRING_INVSLOT = 107
 
--- Override SetTooltipMoney function to modify tooltip display
-local _SetTooltipMoney = SetTooltipMoney
-function SetTooltipMoney(frame, money, ...)
-    if overridePrice then
-        _SetTooltipMoney(frame, overridePrice, ...)
-    else
-        _SetTooltipMoney(frame, money, ...)
-        overridePrice = nil
-    end
-end
-
--- Clear overridePrice on tooltip hide
-if GameTooltip and GameTooltip.HasScript and GameTooltip:HasScript("OnHide") then
-    GameTooltip:HookScript("OnHide", function()
-        overridePrice = nil
-    end)
-end
+-- Do not replace Blizzard's global SetTooltipMoney. Native tooltip money
+-- rendering must remain untouched when a context is disabled.
 
 -- Function to format money values with precise alignment & 12x12 icons
 local function FormatMoneyWithIcons(amount)
@@ -55,76 +39,6 @@ local function FormatMoneyWithIcons(amount)
     return goldString .. silverString .. copperString
 end
 
--- Normalize Blizzard's native Forever Sell Price row into the same visual
--- language VPP uses for stacked items: gold label on the left and money in a
--- compact, right-aligned value column. This also applies to single-item prices
--- so vendor values do not change presentation based on stack size.
-local function FormatForeverSellPriceRow(tt, sellPrice)
-    local tooltipName = tt.GetName and tt:GetName()
-    if not tooltipName or not tt.NumLines then return nil end
-
-    for i = 1, tt:NumLines() do
-        local left = _G[tooltipName .. "TextLeft" .. i]
-        local right = _G[tooltipName .. "TextRight" .. i]
-        local text = left and left:GetText()
-
-        if text and text:find(SELL_PRICE_TEXT, 1, true) == 1 and right then
-            left:SetText(SELL_PRICE_TEXT)
-            left:SetTextColor(NORMAL_FONT_COLOR.r, NORMAL_FONT_COLOR.g, NORMAL_FONT_COLOR.b)
-            right:SetText(FormatMoneyWithIcons(sellPrice))
-            right:Show()
-
-            -- Forever can mark tooltip geometry as secret/protected, especially
-            -- for action-bar item tooltips. Never perform arithmetic on measured
-            -- FontString widths here; use Blizzard's normal right column instead.
-            right:ClearAllPoints()
-            right:SetPoint("RIGHT", tt, "RIGHT", -10, 0)
-
-            return left, right
-        end
-    end
-end
-
--- Compact Forever price rows into a small two-column table.
--- Blizzard writes Sell Price as one left-aligned string. For stack contexts we
--- split that native line into the existing left/right FontStrings, then align
--- our Unit Price row to the same nearby right edge. If the expected tooltip
--- FontStrings are unavailable, this safely falls back to Blizzard's layout.
-local function CompactForeverPriceRows(tt, stackPrice, unitPrice)
-    local tooltipName = tt.GetName and tt:GetName()
-    if not tooltipName or not tt.NumLines then return false end
-
-    local sellLeft, sellRight = FormatForeverSellPriceRow(tt, stackPrice)
-    if not (sellLeft and sellRight) then
-        return false
-    end
-
-    local unitLeft, unitRight
-    for i = 1, tt:NumLines() do
-        local left = _G[tooltipName .. "TextLeft" .. i]
-        local right = _G[tooltipName .. "TextRight" .. i]
-        if left and left:GetText() == "Unit Price:" then
-            unitLeft, unitRight = left, right
-            break
-        end
-    end
-
-    if not (unitLeft and unitRight) then
-        return false
-    end
-
-    unitLeft:SetTextColor(NORMAL_FONT_COLOR.r, NORMAL_FONT_COLOR.g, NORMAL_FONT_COLOR.b)
-
-    -- Keep both values in Blizzard's normal right column. Do not inspect or
-    -- calculate from FontString geometry: Forever may protect those measurements
-    -- as secret values on secure tooltip paths such as action-bar items.
-    sellRight:ClearAllPoints()
-    sellRight:SetPoint("RIGHT", tt, "RIGHT", -10, 0)
-    unitRight:ClearAllPoints()
-    unitRight:SetPoint("RIGHT", tt, "RIGHT", -10, 0)
-
-    return true
-end
 -- Forever's modern tooltip pipeline exposes Sell Price as its own typed line.
 -- A line post-call runs immediately after Blizzard renders that line but before
 -- the following footer/help lines are rendered. Adding Unit Price here keeps the
@@ -150,8 +64,14 @@ if Compat.IsForever()
                 return "mail"
             elseif getterName == "GetBuybackItem" or getterName == "GetMerchantItem" then
                 return "merchant"
-            elseif getterName == "GetRecipeReagentItem" then
+            elseif getterName == "GetRecipeReagentItem"
+                or getterName == "GetTradeSkillItem"
+                or getterName == "GetCraftItem"
+                or getterName == "GetRecipeResultItem" then
                 return "professions"
+            elseif getterName == "GetAuctionItem" or getterName == "GetAuctionHouseItem"
+                or getterName == "GetAuctionHouseBrowseItem" then
+                return "auctionHouse"
             elseif getterName == "GetQuestItem" or getterName == "GetQuestLogItem" then
                 return "questRewards"
             elseif getterName == "GetBagItem"
@@ -179,6 +99,31 @@ if Compat.IsForever()
 
         local contextKey = GetForeverContextKey(tt)
         if contextKey and not VP:IsContextEnabled(contextKey) then
+            return
+        end
+
+        -- Forever quest rewards are built with GetQuestLogItem. The native
+        -- SellPrice row already has the correct value; changing its label must
+        -- not depend on a cached item price or a stack-price calculation.
+        -- Adjust the processor's line data as well as any rendered FontString
+        -- so either rendering order can pick up the new label.
+        if contextKey == "questRewards" then
+            if type(lineData.leftText) == "string"
+                and lineData.leftText:find(SELL_PRICE_TEXT, 1, true) == 1 then
+                lineData.leftText = "Vendor"
+            end
+            local tooltipName = tt.GetName and tt:GetName()
+            if tooltipName and tt.NumLines then
+                for i = 1, tt:NumLines() do
+                    local left = _G[tooltipName .. "TextLeft" .. i]
+                    local label = left and left:GetText()
+                    if type(label) == "string"
+                        and label:find(SELL_PRICE_TEXT, 1, true) == 1 then
+                        left:SetText(NORMAL_FONT_COLOR:WrapTextInColorCode("Vendor"))
+                        break
+                    end
+                end
+            end
             return
         end
 
@@ -280,28 +225,43 @@ if Compat.IsForever()
                 tt:Show()
             end
             return
-        elseif contextKey == nil then
-            -- Secure action-bar tooltips do not expose a readable stack count on
-            -- Forever. Do not touch GetActionCount(): it can be secret. Preserve
-            -- the safe action-bar behavior established in 1.2.2.
-            FormatForeverSellPriceRow(tt, stackPrice)
-            if stackPrice <= unitPrice then
-                return
-            end
         else
-            -- Known non-inventory contexts have their own explicit count paths.
-            FormatForeverSellPriceRow(tt, stackPrice)
+            -- Forever's native Sell Price row is the authoritative stack
+            -- value. Keep its normal presentation when the context is disabled
+            -- (handled above), and use one vocabulary for enabled contexts.
+            -- Do not infer a count from protected tooltip data.
+            local tooltipName = tt.GetName and tt:GetName()
+            if not tooltipName then return end
+            local count = 1
+            if Compat.CanAccessNumber(unitPrice) and unitPrice > 0
+                and Compat.CanAccessNumber(stackPrice)
+                and stackPrice >= unitPrice and stackPrice % unitPrice == 0 then
+                count = stackPrice / unitPrice
+            end
+
+            for i = 1, tt:NumLines() do
+                local left = _G[tooltipName .. "TextLeft" .. i]
+                local right = _G[tooltipName .. "TextRight" .. i]
+                local label = left and left:GetText()
+                if type(label) == "string" and label:find(SELL_PRICE_TEXT, 1, true) == 1 then
+                    left:SetText(NORMAL_FONT_COLOR:WrapTextInColorCode("Vendor"))
+                    if right then
+                        right:SetText(FormatMoneyWithIcons(unitPrice))
+                        right:Show()
+                    end
+                    break
+                end
+            end
+            if count >= 2 then
+                tt:AddDoubleLine(
+                    NORMAL_FONT_COLOR:WrapTextInColorCode(format("Vendor |cff88ccffx%d|r", count)),
+                    FormatMoneyWithIcons(stackPrice),
+                    1, 1, 1, 1, 1, 1
+                )
+                tt:Show()
+            end
             return
         end
-
-        tt:AddDoubleLine(
-            "Unit Price:",
-            FormatMoneyWithIcons(unitPrice),
-            NORMAL_FONT_COLOR.r, NORMAL_FONT_COLOR.g, NORMAL_FONT_COLOR.b,
-            1, 1, 1
-        )
-
-        CompactForeverPriceRows(tt, stackPrice, unitPrice)
     end)
 end
 
@@ -329,7 +289,50 @@ if GameTooltip and GameTooltip.HookScript then
     end
 end
 
+-- Hide Blizzard's redundant native Sell Price text only when VPP actually
+-- supplies its own Vendor row. This is presentation-only and does not modify
+-- the underlying sell value or merchant transaction.
+local function HideLegacySellPrice(tt)
+    local tooltipName = tt and tt.GetName and tt:GetName()
+    if not tooltipName or not tt.NumLines then return end
+    for line = 1, tt:NumLines() do
+        local left = _G[tooltipName .. "TextLeft" .. line]
+        local label = left and left:GetText()
+        if type(label) == "string" and label:find(SELL_PRICE_TEXT, 1, true) == 1 then
+            left:SetText("")
+            local right = _G[tooltipName .. "TextRight" .. line]
+            if right then right:SetText("") end
+        end
+    end
+end
+
+-- A disabled context must be a complete no-op: leave Blizzard's Sell
+-- Price line and all other tooltip content intact. Centralizing this check
+-- also covers fallback hooks that call SetPrice directly.
+local LEGACY_CONTEXTS = {
+    SetAuctionItem = "auctionHouse",
+    Integration = "auctionHouse",
+    SetBagItem = "inventoryBank",
+    SetInventoryItem = "inventoryBank",
+    SetTradePlayerItem = "inventoryBank",
+    SetTradeTargetItem = "inventoryBank",
+    SetLootItem = "inventoryBank",
+    SetMerchantItem = "merchant",
+    SetBuybackItem = "merchant",
+    SetSendMailItem = "mail",
+    SetInboxItem = "mail",
+    SetTradeSkillItem = "professions",
+    SetCraftItem = "professions",
+    SetRecipeReagentItem = "professions",
+    QuestReward = "questRewards",
+    QuestRewardFallback = "questRewards",
+    SetQuestItem = "questRewards",
+    SetQuestLogItem = "questRewards",
+}
+
 function VP:SetPrice(tt, _, source, count, item)
+    local context = LEGACY_CONTEXTS[source]
+    if context and not VP:IsContextEnabled(context) then return end
     -- Resolve the item before the count. Action-bar callers can provide an item
     -- ID even when GetActionCount() itself is protected.
     if not item and tt and type(tt.GetItem) == "function" then
@@ -354,6 +357,11 @@ function VP:SetPrice(tt, _, source, count, item)
             if Compat.IsForever() then
                 return
             end
+
+            -- A quest button can invoke both its setter and an OnEnter hook.
+            -- Avoid adding our price twice to the same tooltip rendering.
+            if tt.__VendorPricePlusLegacyPriceAdded then return end
+            tt.__VendorPricePlusLegacyPriceAdded = true
 
             local stackText = count >= 2 and format("Vendor |cff88ccffx%d|r", count) or "Vendor"
 
@@ -380,9 +388,21 @@ function VP:SetPrice(tt, _, source, count, item)
                 end
             end
 
+            -- Auctionator already provides the unit Vendor row for singles.
+            -- Keep Blizzard's native line if VPP contributed no replacement.
+            if not IsAuctionatorLoaded() or count >= 2 then
+                HideLegacySellPrice(tt)
+            end
             tt:Show()
         end
     end
+end
+
+-- Reset the per-render guard whenever Blizzard clears the tooltip.
+if GameTooltip and GameTooltip.HasScript and GameTooltip:HasScript("OnTooltipCleared") then
+    GameTooltip:HookScript("OnTooltipCleared", function(tt)
+        tt.__VendorPricePlusLegacyPriceAdded = nil
+    end)
 end
 
 -- Legacy/public tooltip setters shared by the supported WoW clients.
@@ -406,18 +426,19 @@ local SetItem = {
         end
     end,
     SetAuctionItem = function(tt, auctionType, index)
+        if not VP:IsContextEnabled("auctionHouse") then return end
         local _, _, count = GetAuctionItemInfo(auctionType, index)
         VP:SetPrice(tt, false, "SetAuctionItem", count)
     end,
     SetBagItem = function(tt, bag, slot)
-        if Compat.IsForever() and not VP:IsContextEnabled("inventoryBank") then return end
+        if not VP:IsContextEnabled("inventoryBank") then return end
         local info = Compat.GetContainerItemInfo(bag, slot)
         if info and info.stackCount then
             VP:SetPrice(tt, true, "SetBagItem", info.stackCount)
         end
     end,
     SetInventoryItem = function(tt, unit, slot)
-        if Compat.IsForever() and not VP:IsContextEnabled("inventoryBank") then return end
+        if not VP:IsContextEnabled("inventoryBank") then return end
         if slot < FIRST_KEYRING_INVSLOT then
             VP:SetPrice(tt, true, "SetInventoryItem", GetInventoryItemCount(unit, slot))
         end
@@ -427,6 +448,87 @@ local SetItem = {
 for method, func in pairs(SetItem) do
     if type(GameTooltip[method]) == "function" then
         hooksecurefunc(GameTooltip, method, func)
+    end
+end
+
+-- Classic tooltip surfaces that use their own item setters. Use the
+-- tooltip's resolved item link rather than guessing from frame button IDs.
+-- Capability checks keep this compatible with Era, seasonal and Anniversary.
+if not Compat.IsForever() then
+    local contexts = {
+        SetBuybackItem = { key = "merchant", count = function(index)
+            if type(GetBuybackItemInfo) == "function" then
+                local _, _, _, count = GetBuybackItemInfo(index)
+                return count
+            end
+        end },
+        SetMerchantItem = { key = "merchant", count = function(index)
+            if type(GetMerchantItemInfo) == "function" then
+                local _, _, _, count = GetMerchantItemInfo(index)
+                return count
+            end
+        end },
+        SetSendMailItem = { key = "mail", count = function(index)
+            -- GetSendMailItem returns name, itemID, texture, count, quality.
+            -- The third value is a texture identifier, NOT the stack count.
+            if type(GetSendMailItem) == "function" then
+                local _, _, _, count = GetSendMailItem(index)
+                return count
+            end
+        end },
+        SetInboxItem = { key = "mail", count = function(index, attachment)
+            -- Era's tooltip setter can be called with only the message index.
+            -- Blizzard's GetInboxItem requires a separate attachment slot;
+            -- never pass nil (the tooltip refreshes frequently on hover).
+            if type(index) ~= "number" then return 1 end
+            if type(attachment) ~= "number" then attachment = 1 end
+            if type(GetInboxItem) == "function" then
+                local _, _, _, count = GetInboxItem(index, attachment)
+                return count
+            end
+            return 1
+        end },
+        SetQuestItem = { key = "questRewards" },
+        SetQuestLogItem = { key = "questRewards" },
+        SetTradePlayerItem = { key = "inventoryBank" },
+        SetTradeTargetItem = { key = "inventoryBank" },
+        SetLootItem = { key = "inventoryBank" },
+        SetRecipeReagentItem = { key = "professions" },
+        -- Era's original TradeSkillFrame and CraftFrame use these legacy
+        -- setters for both the crafted output and individual reagents.
+        SetTradeSkillItem = { key = "professions", count = function(skillIndex, reagentIndex)
+            if reagentIndex and type(GetTradeSkillReagentInfo) == "function" then
+                local _, _, required = GetTradeSkillReagentInfo(skillIndex, reagentIndex)
+                return required
+            end
+            if type(GetTradeSkillNumMade) == "function" then
+                local minimum = GetTradeSkillNumMade(skillIndex)
+                return minimum
+            end
+            return 1
+        end },
+        SetCraftItem = { key = "professions", count = function(skillIndex, reagentIndex)
+            if reagentIndex and type(GetCraftReagentInfo) == "function" then
+                local _, _, required = GetCraftReagentInfo(skillIndex, reagentIndex)
+                return required
+            end
+            if type(GetCraftNumMade) == "function" then
+                local minimum = GetCraftNumMade(skillIndex)
+                return minimum
+            end
+            return 1
+        end },
+    }
+    for method, config in pairs(contexts) do
+        if type(GameTooltip[method]) == "function" then
+            hooksecurefunc(GameTooltip, method, function(tt, ...)
+                if not VP:IsContextEnabled(config.key) then return end
+                local count = config.count and config.count(...) or 1
+                VP:SetPrice(tt, false, method, count)
+
+
+            end)
+        end
     end
 end
 
@@ -529,10 +631,9 @@ if Compat.IsForever() and TooltipDataProcessor and TooltipDataProcessor.AddToolt
             return
         end
 
-        -- Forever's Map & Quest Log exposes both guaranteed rewards and
-        -- selectable choices through GetQuestLogItem. The tooltip owner tells us
-        -- which kind of quest item button it is. Handle both here because the
-        -- older QuestInfo APIs are not populated while viewing MapQuestInfo.
+        -- Forever's Map & Quest Log uses GetQuestLogItem for both reward
+        -- choices and guaranteed items. Its Sell Price row may be supplied by
+        -- Blizzard or by this post-call, depending on the quest surface.
         local info = tt.GetProcessingTooltipInfo and tt:GetProcessingTooltipInfo()
         local getterName = info and info.getterName
         local isQuestReward = owner.objectType == "item"
@@ -542,33 +643,35 @@ if Compat.IsForever() and TooltipDataProcessor and TooltipDataProcessor.AddToolt
         if isQuestReward then
             if not VP:IsContextEnabled("questRewards") then return end
 
-            -- Some Forever quest surfaces (notably the NPC quest offer/accept
-            -- window) already render Blizzard's native Sell Price. The Map &
-            -- Quest Log omits it. Only supply the missing row when Blizzard did
-            -- not already render one, avoiding a duplicate below the F6 footer.
+            -- Normalize an existing native row instead of returning with the
+            -- old Sell Price label. Keep its displayed amount untouched.
             local tooltipName = tt.GetName and tt:GetName()
             if tooltipName and tt.NumLines then
                 for i = 1, tt:NumLines() do
                     local left = _G[tooltipName .. "TextLeft" .. i]
                     local text = left and left:GetText()
-                    if text and text:find(SELL_PRICE_TEXT, 1, true) == 1 then
+                    if type(text) == "string"
+                        and text:find(SELL_PRICE_TEXT, 1, true) == 1 then
+                        left:SetText(NORMAL_FONT_COLOR:WrapTextInColorCode("Vendor"))
                         return
                     end
                 end
             end
 
+            -- The Map & Quest Log sometimes omits Blizzard's price entirely.
+            -- Add a single vendor row there, using the reward's known count.
             local count = tonumber(owner.count) or 1
             local sellPrice = select(11, Compat.GetItemInfo(item))
-            if sellPrice and sellPrice > 0 then
+            if Compat.CanAccessNumber(sellPrice) and sellPrice > 0 then
                 tt:AddDoubleLine(
-                    NORMAL_FONT_COLOR:WrapTextInColorCode(SELL_PRICE_TEXT),
-                    FormatMoneyWithIcons(sellPrice * count),
+                    NORMAL_FONT_COLOR:WrapTextInColorCode("Vendor"),
+                    FormatMoneyWithIcons(sellPrice),
                     1, 1, 1, 1, 1, 1
                 )
                 if count >= 2 then
                     tt:AddDoubleLine(
-                        "Unit Price:",
-                        FormatMoneyWithIcons(sellPrice),
+                        NORMAL_FONT_COLOR:WrapTextInColorCode(format("Vendor |cff88ccffx%d|r", count)),
+                        FormatMoneyWithIcons(sellPrice * count),
                         1, 1, 1, 1, 1, 1
                     )
                 end
@@ -600,7 +703,7 @@ end
 -- Classic clients. Forever's Map & Quest Log is handled by the modern tooltip
 -- post-call above.
 local function OnEnterQuestReward(self)
-    if Compat.IsForever() then return end
+    if Compat.IsForever() or not VP:IsContextEnabled("questRewards") then return end
 
     local link = self.itemLink or (self.GetID and GetQuestItemLink(self.type, self:GetID()))
     if link then
@@ -619,6 +722,7 @@ local function SafeHookScript(frame, scriptName, callback)
     return true
 end
 
+if type(QuestInfo_Display) == "function" then
 hooksecurefunc("QuestInfo_Display", function()
     for i = 1, MAX_NUM_ITEMS do
         local button = QuestInfoRewardsFrame and QuestInfoRewardsFrame["QuestInfoItem" .. i]
@@ -629,6 +733,7 @@ hooksecurefunc("QuestInfo_Display", function()
         end
     end
 end)
+end
 
 -- Tooltip fallback using GetOwner() (DF-safe)
 if GameTooltip.HasScript and GameTooltip:HasScript("OnTooltipSetItem") then
@@ -642,7 +747,7 @@ if GameTooltip.HasScript and GameTooltip:HasScript("OnTooltipSetItem") then
         local parent = owner:GetParent()
         local parentName = parent and parent:GetName()
 
-        if parentName and parentName:match("^QuestInfoRewardsFrame") then
+        if not Compat.IsForever() and VP:IsContextEnabled("questRewards") and parentName and parentName:match("^QuestInfoRewardsFrame") then
             VP:SetPrice(tt, false, "QuestRewardFallback", owner.count or 1, itemLink)
         end
     end)

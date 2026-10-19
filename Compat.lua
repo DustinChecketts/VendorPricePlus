@@ -65,7 +65,7 @@ function Compat.CanAccessValue(value)
 end
 
 function Compat.CanAccessNumber(value)
-    return type(value) == "number" and Compat.CanAccessValue(value)
+    return Compat.CanAccessValue(value) and type(value) == "number"
 end
 
 -- Action-bar counts can become secret in combat. For item actions only, recover

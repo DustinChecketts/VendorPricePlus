@@ -1,7 +1,8 @@
 local VP = VendorPricePlus
 
-local function SetPrice(tt, count, item)
-    VP:SetPrice(tt, false, "Integration", count, item, true)
+local function SetPrice(tt, count, item, context)
+    if context and not VP:IsContextEnabled(context) then return end
+    VP:SetPrice(tt, false, context == "auctionHouse" and "SetAuctionItem" or "Integration", count, item, true)
 end
 
 function VP:IsShown(frame)
@@ -13,7 +14,7 @@ local Auctioneer = {
         local itemID = select(2, tt:GetItem()):match("item:(%d+)")
         for _, v in pairs(AucAdvAppraiserFrame.list) do
             if v[1] == itemID then
-                SetPrice(tt, v[6])
+                SetPrice(tt, v[6], nil, "auctionHouse")
                 break
             end
         end
@@ -21,10 +22,10 @@ local Auctioneer = {
     AucAdvSearchUiAuctionFrame = function(tt)
         local row = tt:GetOwner():GetID()
         local count = AucAdvanced.Modules.Util.SearchUI.Private.gui.sheet.rows[row][4]
-        SetPrice(tt, tonumber(count:GetText()))
+        SetPrice(tt, tonumber(count:GetText()), nil, "auctionHouse")
     end,
     AucAdvSimpFrame = function(tt)
-        SetPrice(tt, AucAdvSimpFrame.detail[1])
+        SetPrice(tt, AucAdvSimpFrame.detail[1], nil, "auctionHouse")
     end,
 }
 
@@ -45,7 +46,7 @@ local function OnIntegrationTooltipSetItem(tt)
             local hoverRowData = AuctionFaster.hoverRowData
             count = hoverRowData and hoverRowData.count
         end
-        SetPrice(tt, count)
+        SetPrice(tt, count, nil, "auctionHouse")
     elseif AtlasLoot and VP:IsShown(_G["AtlasLoot_GUI-Frame"]) then
         SetPrice(tt)
     else

@@ -1,0 +1,65 @@
+name: Validate addon
+
+on:
+  push:
+    branches:
+      - main
+      - 'feature/**'
+      - 'checkpoint/**'
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  validate:
+    name: Lua syntax and TOC references
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out addon repository
+        uses: actions/checkout@v4
+
+      - name: Install Lua 5.1 compiler
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y lua5.1
+
+      - name: Validate Lua syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          count=0
+          while IFS= read -r -d '' file; do
+            echo "Checking $file"
+            luac5.1 -p "$file"
+            count=$((count + 1))
+          done < <(find . -type f -name '*.lua' -not -path './.git/*' -not -path './Includes/*' -not -path './Tests/fixtures/*' -print0)
+          echo "Validated $count Lua file(s)"
+
+      - name: Validate TOC file references
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import sys
+          tocs = sorted(Path(".").rglob("*.toc"))
+          tocs = [p for p in tocs if ".git" not in p.parts and "Tests" not in p.parts]
+          if not tocs:
+              sys.exit("No .toc files found")
+          errors = []
+          for toc in tocs:
+              for number, raw in enumerate(toc.read_text(encoding="utf-8-sig").splitlines(), 1):
+                  entry = raw.strip()
+                  if not entry or entry.startswith("#"):
+                      continue
+                  entry = entry.replace("\\", "/")
+                  if not (toc.parent / entry).is_file():
+                      errors.append(f"{toc}:{number}: missing {entry}")
+          if errors:
+              sys.exit("\n".join(errors))
+          print(f"Validated file references in {len(tocs)} TOC(s)")
+          PY
+
+      - name: Report packaging policy
+        shell: bash
+        run: |
+          echo "Development files must be excluded from release ZIPs."
+          echo "This workflow does not build a release ZIP; package-content verification is a separate upcoming step."
