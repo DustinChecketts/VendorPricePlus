@@ -108,11 +108,24 @@ local function CreateOptionsPanel(self)
 
     self.vppChecks = checks
 
+    local defaultsButton = CreateFrame("Button", nil, self, "UIPanelButtonTemplate")
+    defaultsButton:SetSize(110, 24)
+    defaultsButton:SetPoint("TOPLEFT", lastCheck, "BOTTOMLEFT", 4, -12)
+    defaultsButton:SetText("Defaults")
+    defaultsButton:SetScript("OnClick", function()
+        for key, defaultValue in pairs(CONTEXT_DEFAULTS) do
+            VP:SetContextEnabled(key, defaultValue)
+        end
+        for _, row in ipairs(self.vppChecks) do
+            row.button:SetChecked(VP:IsContextEnabled(row.key))
+        end
+    end)
+
     local note = self:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
-    note:SetPoint("TOPLEFT", lastCheck, "BOTTOMLEFT", 4, -18)
+    note:SetPoint("TOPLEFT", defaultsButton, "BOTTOMLEFT", 0, -12)
     note:SetWidth(500)
     note:SetJustifyH("LEFT")
-    note:SetText("All tooltip contexts are enabled by default. Uncheck a context to disable VendorPricePlus pricing there.")
+    note:SetText("Choose where you'd like to see vendor prices. All options are enabled by default.")
 end
 
 panel:SetScript("OnShow", function(self)
