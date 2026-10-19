@@ -482,12 +482,15 @@ if not Compat.IsForever() then
             end
         end },
         SetSendMailItem = { key = "mail", count = function(index)
+            -- GetSendMailItem returns name, itemID, texture, count, quality.
+            -- The third value is a texture identifier, NOT the stack count.
             if type(GetSendMailItem) == "function" then
-                local _, _, count = GetSendMailItem(index)
+                local _, _, _, count = GetSendMailItem(index)
                 return count
             end
         end },
         SetInboxItem = { key = "mail", count = function(index, attachment)
+            -- GetInboxItem returns name, itemID, texture, count, quality, ...
             if type(GetInboxItem) == "function" then
                 local _, _, _, count = GetInboxItem(index, attachment)
                 return count
