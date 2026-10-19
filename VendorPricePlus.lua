@@ -355,6 +355,11 @@ function VP:SetPrice(tt, _, source, count, item)
                 return
             end
 
+            -- A quest button can invoke both its setter and an OnEnter hook.
+            -- Avoid adding our price twice to the same tooltip rendering.
+            if tt.__VendorPricePlusLegacyPriceAdded then return end
+            tt.__VendorPricePlusLegacyPriceAdded = true
+
             local stackText = count >= 2 and format("Vendor |cff88ccffx%d|r", count) or "Vendor"
 
             if IsAuctionatorLoaded() then
@@ -383,6 +388,13 @@ function VP:SetPrice(tt, _, source, count, item)
             tt:Show()
         end
     end
+end
+
+-- Reset the per-render guard whenever Blizzard clears the tooltip.
+if GameTooltip and GameTooltip.HasScript and GameTooltip:HasScript("OnTooltipCleared") then
+    GameTooltip:HookScript("OnTooltipCleared", function(tt)
+        tt.__VendorPricePlusLegacyPriceAdded = nil
+    end)
 end
 
 -- Legacy/public tooltip setters shared by the supported WoW clients.
