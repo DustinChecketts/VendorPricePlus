@@ -367,28 +367,6 @@ function VP:SetPrice(tt, _, source, count, item)
     -- Never allow an unreadable/secret count to reach arithmetic. Item actions
     -- may safely recover the equivalent inventory count; other contexts fall
     -- back to one rather than substituting an unrelated bag total.
-    -- Legacy quest-log tooltips can pass through a generic item setter before
-    -- the quest-specific setter runs. Resolve the actual reward quantity here,
-    -- before the once-per-tooltip guard, using the tooltip owner where possible.
-    if not Compat.IsForever() and VP:IsContextEnabled("questRewards") and tt and tt.GetOwner then
-        local owner = tt:GetOwner()
-        local parent = owner and owner.GetParent and owner:GetParent()
-        local ownerName = owner and owner.GetName and owner:GetName() or ""
-        local parentName = parent and parent.GetName and parent:GetName() or ""
-        local isQuestLog = source == "SetQuestLogItem"
-            or ownerName:find("QuestLog", 1, true)
-            or parentName:find("QuestLog", 1, true)
-        if isQuestLog and type(GetQuestLogItemInfo) == "function" then
-            local rewardType = owner and owner.type or "reward"
-            local rewardIndex = owner and owner.GetID and owner:GetID()
-            if type(rewardIndex) == "number" and rewardIndex > 0 then
-                local _, _, rewardCount = GetQuestLogItemInfo(rewardType, rewardIndex)
-                if type(rewardCount) == "number" and rewardCount > 1 then
-                    count = rewardCount
-                end
-            end
-        end
-    end
     count = Compat.ResolveStackCount(count, item, source == "SetAction")
 
     if item and Compat.CanAccessValue(item) then
@@ -794,6 +772,66 @@ hooksecurefunc("QuestInfo_Display", function()
     end
 end)
 end
+
+-- Classic/TBC quest-log reward buttons can display a quantity without
+-- passing it to the tooltip setter. Add only the missing stack row after
+-- Blizzard and the normal VPP tooltip hooks have run. This is a presentation
+-- supplement; the common unit-pricing path remains unchanged.
+local function OnEnterQuestLogStack(self)
+    if Compat.IsForever() or not VP:IsContextEnabled("questRewards") then return end
+    local tt = GameTooltip
+    if not tt or not tt.GetOwner or tt:GetOwner() ~= self then return end
+
+    local rewardIndex = self.GetID and self:GetID()
+    local count = tonumber(self.count)
+    if (not count or count < 2) and type(GetQuestLogItemInfo) == "function"
+        and type(rewardIndex) == "number" and rewardIndex > 0 then
+        local _, _, apiCount = GetQuestLogItemInfo(self.type or "reward", rewardIndex)
+        count = tonumber(apiCount)
+    end
+    if (not count or count < 2) and self.Count and self.Count.GetText then
+        count = tonumber(self.Count:GetText())
+    end
+    if not count or count < 2 then return end
+
+    local item = select(2, tt:GetItem())
+    if not item or not Compat.CanAccessValue(item) then return end
+    local unitPrice = select(11, Compat.GetItemInfo(item))
+    if not Compat.CanAccessNumber(unitPrice) or unitPrice <= 0 then return end
+
+    local name = tt:GetName()
+    if name then
+        for line = 1, tt:NumLines() do
+            local left = _G[name .. "TextLeft" .. line]
+            local label = left and left:GetText()
+            if type(label) == "string" and label:find("Vendor")
+                and label:find("x" .. count, 1, true) then
+                return
+            end
+        end
+    end
+    tt:AddDoubleLine(
+        NORMAL_FONT_COLOR:WrapTextInColorCode(format("Vendor |cff88ccffx%d|r", count)),
+        FormatMoneyWithIcons(unitPrice * count), 1, 1, 1, 1, 1, 1
+    )
+    tt:Show()
+end
+
+local function HookQuestLogStackButtons()
+    if Compat.IsForever() then return end
+    for i = 1, (MAX_NUM_ITEMS or 10) do
+        local button = _G["QuestLogItem" .. i]
+        if button and not button.__VendorPricePlusStackHooked
+            and button.HookScript and button:HasScript("OnEnter") then
+            button:HookScript("OnEnter", OnEnterQuestLogStack)
+            button.__VendorPricePlusStackHooked = true
+        end
+    end
+end
+if type(QuestLog_Update) == "function" then
+    hooksecurefunc("QuestLog_Update", HookQuestLogStackButtons)
+end
+HookQuestLogStackButtons()
 
 -- Tooltip fallback using GetOwner() (DF-safe)
 if GameTooltip.HasScript and GameTooltip:HasScript("OnTooltipSetItem") then
