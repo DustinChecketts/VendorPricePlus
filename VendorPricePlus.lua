@@ -513,8 +513,22 @@ if not Compat.IsForever() then
             end
             return 1
         end },
-        SetQuestItem = { key = "questRewards" },
-        SetQuestLogItem = { key = "questRewards" },
+        SetQuestItem = { key = "questRewards", count = function(rewardType, index)
+            if type(GetQuestItemInfo) == "function" then
+                local _, _, count = GetQuestItemInfo(rewardType, index)
+                return count
+            end
+            return 1
+        end },
+        SetQuestLogItem = { key = "questRewards", count = function(rewardType, index)
+            -- Quest log reward buttons don't always expose .count on their
+            -- owner. Read the reward quantity from the quest-log API instead.
+            if type(GetQuestLogItemInfo) == "function" then
+                local _, _, count = GetQuestLogItemInfo(rewardType, index)
+                return count
+            end
+            return 1
+        end },
         SetTradePlayerItem = { key = "inventoryBank" },
         SetTradeTargetItem = { key = "inventoryBank" },
         SetLootItem = { key = "inventoryBank" },
