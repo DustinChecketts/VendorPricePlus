@@ -484,6 +484,25 @@ if not Compat.IsForever() then
                 if not VP:IsContextEnabled(config.key) then return end
                 local count = config.count and config.count(...) or 1
                 VP:SetPrice(tt, false, method, count)
+
+                -- On Classic buyback tooltips Blizzard can leave its native
+                -- Sell Price line visible alongside our Vendor/Vendor xN rows.
+                -- Clear only that redundant display line, never the actual
+                -- merchant price or other money fields.
+                if method == "SetBuybackItem" and tt.__VendorPricePlusLegacyPriceAdded then
+                    local tooltipName = tt.GetName and tt:GetName()
+                    if tooltipName and tt.NumLines then
+                        for line = 1, tt:NumLines() do
+                            local left = _G[tooltipName .. "TextLeft" .. line]
+                            local right = _G[tooltipName .. "TextRight" .. line]
+                            local label = left and left:GetText()
+                            if type(label) == "string" and label:find(SELL_PRICE_TEXT, 1, true) == 1 then
+                                left:SetText("")
+                                if right then right:SetText("") end
+                            end
+                        end
+                    end
+                end
             end)
         end
     end
