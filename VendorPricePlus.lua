@@ -17,7 +17,6 @@ end
 
 -- Constants
 local SELL_PRICE_TEXT = format("%s:", SELL_PRICE)
-local overridePrice
 
 -- First keyring inventory slot
 local FIRST_KEYRING_INVSLOT = 107
@@ -40,76 +39,6 @@ local function FormatMoneyWithIcons(amount)
     return goldString .. silverString .. copperString
 end
 
--- Normalize Blizzard's native Forever Sell Price row into the same visual
--- language VPP uses for stacked items: gold label on the left and money in a
--- compact, right-aligned value column. This also applies to single-item prices
--- so vendor values do not change presentation based on stack size.
-local function FormatForeverSellPriceRow(tt, sellPrice)
-    local tooltipName = tt.GetName and tt:GetName()
-    if not tooltipName or not tt.NumLines then return nil end
-
-    for i = 1, tt:NumLines() do
-        local left = _G[tooltipName .. "TextLeft" .. i]
-        local right = _G[tooltipName .. "TextRight" .. i]
-        local text = left and left:GetText()
-
-        if text and text:find(SELL_PRICE_TEXT, 1, true) == 1 and right then
-            left:SetText(SELL_PRICE_TEXT)
-            left:SetTextColor(NORMAL_FONT_COLOR.r, NORMAL_FONT_COLOR.g, NORMAL_FONT_COLOR.b)
-            right:SetText(FormatMoneyWithIcons(sellPrice))
-            right:Show()
-
-            -- Forever can mark tooltip geometry as secret/protected, especially
-            -- for action-bar item tooltips. Never perform arithmetic on measured
-            -- FontString widths here; use Blizzard's normal right column instead.
-            right:ClearAllPoints()
-            right:SetPoint("RIGHT", tt, "RIGHT", -10, 0)
-
-            return left, right
-        end
-    end
-end
-
--- Compact Forever price rows into a small two-column table.
--- Blizzard writes Sell Price as one left-aligned string. For stack contexts we
--- split that native line into the existing left/right FontStrings, then align
--- our Unit Price row to the same nearby right edge. If the expected tooltip
--- FontStrings are unavailable, this safely falls back to Blizzard's layout.
-local function CompactForeverPriceRows(tt, stackPrice, unitPrice)
-    local tooltipName = tt.GetName and tt:GetName()
-    if not tooltipName or not tt.NumLines then return false end
-
-    local sellLeft, sellRight = FormatForeverSellPriceRow(tt, stackPrice)
-    if not (sellLeft and sellRight) then
-        return false
-    end
-
-    local unitLeft, unitRight
-    for i = 1, tt:NumLines() do
-        local left = _G[tooltipName .. "TextLeft" .. i]
-        local right = _G[tooltipName .. "TextRight" .. i]
-        if left and left:GetText() == "Unit Price:" then
-            unitLeft, unitRight = left, right
-            break
-        end
-    end
-
-    if not (unitLeft and unitRight) then
-        return false
-    end
-
-    unitLeft:SetTextColor(NORMAL_FONT_COLOR.r, NORMAL_FONT_COLOR.g, NORMAL_FONT_COLOR.b)
-
-    -- Keep both values in Blizzard's normal right column. Do not inspect or
-    -- calculate from FontString geometry: Forever may protect those measurements
-    -- as secret values on secure tooltip paths such as action-bar items.
-    sellRight:ClearAllPoints()
-    sellRight:SetPoint("RIGHT", tt, "RIGHT", -10, 0)
-    unitRight:ClearAllPoints()
-    unitRight:SetPoint("RIGHT", tt, "RIGHT", -10, 0)
-
-    return true
-end
 -- Forever's modern tooltip pipeline exposes Sell Price as its own typed line.
 -- A line post-call runs immediately after Blizzard renders that line but before
 -- the following footer/help lines are rendered. Adding Unit Price here keeps the
@@ -336,9 +265,6 @@ if Compat.IsForever()
     end)
 end
 
--- Some Forever quest rewards use the item tooltip pipeline without a
--- SellPrice line post-call. Normalize only the already-rendered native label;
--- never synthesize prices or interfere with Classic's tooltip hooks.
 -- Auctionator appends its Vendor/Auction rows in the completed item-tooltip
 -- callback. Flush our pending stack row on the tooltip's next update so VPP is
 -- supplemental and appears after Auctionator rather than interrupting it.
