@@ -135,8 +135,14 @@ if Compat.IsForever()
                 return "mail"
             elseif getterName == "GetBuybackItem" or getterName == "GetMerchantItem" then
                 return "merchant"
-            elseif getterName == "GetRecipeReagentItem" then
+            elseif getterName == "GetRecipeReagentItem"
+                or getterName == "GetTradeSkillItem"
+                or getterName == "GetCraftItem"
+                or getterName == "GetRecipeResultItem" then
                 return "professions"
+            elseif getterName == "GetAuctionItem" or getterName == "GetAuctionHouseItem"
+                or getterName == "GetAuctionHouseBrowseItem" then
+                return "auctionHouse"
             elseif getterName == "GetQuestItem" or getterName == "GetQuestLogItem" then
                 return "questRewards"
             elseif getterName == "GetBagItem"
@@ -265,28 +271,43 @@ if Compat.IsForever()
                 tt:Show()
             end
             return
-        elseif contextKey == nil then
-            -- Secure action-bar tooltips do not expose a readable stack count on
-            -- Forever. Do not touch GetActionCount(): it can be secret. Preserve
-            -- the safe action-bar behavior established in 1.2.2.
-            FormatForeverSellPriceRow(tt, stackPrice)
-            if stackPrice <= unitPrice then
-                return
-            end
         else
-            -- Known non-inventory contexts have their own explicit count paths.
-            FormatForeverSellPriceRow(tt, stackPrice)
+            -- Forever's native Sell Price row is the authoritative stack
+            -- value. Keep its normal presentation when the context is disabled
+            -- (handled above), and use one vocabulary for enabled contexts.
+            -- Do not infer a count from protected tooltip data.
+            local tooltipName = tt.GetName and tt:GetName()
+            if not tooltipName then return end
+            local count = 1
+            if Compat.CanAccessNumber(unitPrice) and unitPrice > 0
+                and Compat.CanAccessNumber(stackPrice)
+                and stackPrice >= unitPrice and stackPrice % unitPrice == 0 then
+                count = stackPrice / unitPrice
+            end
+
+            for i = 1, tt:NumLines() do
+                local left = _G[tooltipName .. "TextLeft" .. i]
+                local right = _G[tooltipName .. "TextRight" .. i]
+                local label = left and left:GetText()
+                if type(label) == "string" and label:find(SELL_PRICE_TEXT, 1, true) == 1 then
+                    left:SetText(NORMAL_FONT_COLOR:WrapTextInColorCode("Vendor"))
+                    if right then
+                        right:SetText(FormatMoneyWithIcons(unitPrice))
+                        right:Show()
+                    end
+                    break
+                end
+            end
+            if count >= 2 then
+                tt:AddDoubleLine(
+                    NORMAL_FONT_COLOR:WrapTextInColorCode(format("Vendor |cff88ccffx%d|r", count)),
+                    FormatMoneyWithIcons(stackPrice),
+                    1, 1, 1, 1, 1, 1
+                )
+                tt:Show()
+            end
             return
         end
-
-        tt:AddDoubleLine(
-            "Unit Price:",
-            FormatMoneyWithIcons(unitPrice),
-            NORMAL_FONT_COLOR.r, NORMAL_FONT_COLOR.g, NORMAL_FONT_COLOR.b,
-            1, 1, 1
-        )
-
-        CompactForeverPriceRows(tt, stackPrice, unitPrice)
     end)
 end
 
