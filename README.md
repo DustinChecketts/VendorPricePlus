@@ -1,6 +1,6 @@
 # Vendor Price Plus
 
-**Version 1.2.4 (release candidate)**
+**Version 1.2.4**
 
 Vendor Price Plus is a lightweight World of Warcraft addon that makes vendor values easier to read while preserving Blizzard's familiar item tooltips.
 
@@ -23,8 +23,8 @@ Exact tooltip behavior may vary by client and context. In WoW Forever, vendor-pr
 
 | Client | Version 1.2.4 status |
 | --- | --- |
-| WoW Forever | Tested during release-candidate development, including quest rewards |
-| TBC Anniversary | Previously supported; final 1.2.4 regression test pending |
+| WoW Forever | Tested, including quest rewards |
+| TBC Anniversary | Regression tested during 1.2.4 development |
 | Classic Era | Previously supported; final 1.2.4 regression test pending |
 | Classic Era Hardcore and seasonal variants | Expected to follow Classic Era behavior; not separately verified for 1.2.4 |
 | Mists of Pandaria Classic | Not tested or advertised as supported |
