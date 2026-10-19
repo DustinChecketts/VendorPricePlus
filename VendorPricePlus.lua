@@ -311,6 +311,37 @@ if Compat.IsForever()
     end)
 end
 
+-- Some Forever quest rewards use the item tooltip pipeline without a
+-- SellPrice line post-call. Normalize only the already-rendered native label;
+-- never synthesize prices or interfere with Classic's tooltip hooks.
+if Compat.IsForever() and TooltipDataProcessor
+    and type(TooltipDataProcessor.AddTooltipPostCall) == "function"
+    and Enum and Enum.TooltipDataType and Enum.TooltipDataType.Item then
+    TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Item, function(tt)
+        if not VP:IsContextEnabled("questRewards") then return end
+        if not tt or not tt.GetName or not tt.NumLines then return end
+        local owner = tt.GetOwner and tt:GetOwner()
+        local ownerName = owner and owner.GetName and owner:GetName() or ""
+        local parent = owner and owner.GetParent and owner:GetParent()
+        local parentName = parent and parent.GetName and parent:GetName() or ""
+        local info = tt.GetProcessingTooltipInfo and tt:GetProcessingTooltipInfo()
+        local getterName = info and info.getterName or ""
+        local isQuest = getterName:find("Quest", 1, true)
+            or ownerName:find("Quest", 1, true)
+            or parentName:find("Quest", 1, true)
+        if not isQuest then return end
+        local tooltipName = tt:GetName()
+        if not tooltipName then return end
+        for i = 1, tt:NumLines() do
+            local left = _G[tooltipName .. "TextLeft" .. i]
+            local label = left and left:GetText()
+            if type(label) == "string" and label:find(SELL_PRICE_TEXT, 1, true) == 1 then
+                left:SetText(NORMAL_FONT_COLOR:WrapTextInColorCode("Vendor"))
+            end
+        end
+    end)
+end
+
 -- Auctionator appends its Vendor/Auction rows in the completed item-tooltip
 -- callback. Flush our pending stack row on the tooltip's next update so VPP is
 -- supplemental and appears after Auctionator rather than interrupting it.
