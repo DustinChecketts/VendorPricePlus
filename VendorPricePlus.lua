@@ -410,14 +410,14 @@ local SetItem = {
         VP:SetPrice(tt, false, "SetAuctionItem", count)
     end,
     SetBagItem = function(tt, bag, slot)
-        if Compat.IsForever() and not VP:IsContextEnabled("inventoryBank") then return end
+        if not VP:IsContextEnabled("inventoryBank") then return end
         local info = Compat.GetContainerItemInfo(bag, slot)
         if info and info.stackCount then
             VP:SetPrice(tt, true, "SetBagItem", info.stackCount)
         end
     end,
     SetInventoryItem = function(tt, unit, slot)
-        if Compat.IsForever() and not VP:IsContextEnabled("inventoryBank") then return end
+        if not VP:IsContextEnabled("inventoryBank") then return end
         if slot < FIRST_KEYRING_INVSLOT then
             VP:SetPrice(tt, true, "SetInventoryItem", GetInventoryItemCount(unit, slot))
         end
@@ -427,6 +427,53 @@ local SetItem = {
 for method, func in pairs(SetItem) do
     if type(GameTooltip[method]) == "function" then
         hooksecurefunc(GameTooltip, method, func)
+    end
+end
+
+-- Classic tooltip surfaces that use their own item setters. Use the
+-- tooltip's resolved item link rather than guessing from frame button IDs.
+-- Capability checks keep this compatible with Era, seasonal and Anniversary.
+if not Compat.IsForever() then
+    local contexts = {
+        SetBuybackItem = { key = "merchant", count = function(index)
+            if type(GetBuybackItemInfo) == "function" then
+                local _, _, _, count = GetBuybackItemInfo(index)
+                return count
+            end
+        end },
+        SetMerchantItem = { key = "merchant", count = function(index)
+            if type(GetMerchantItemInfo) == "function" then
+                local _, _, _, count = GetMerchantItemInfo(index)
+                return count
+            end
+        end },
+        SetSendMailItem = { key = "mail", count = function(index)
+            if type(GetSendMailItem) == "function" then
+                local _, _, count = GetSendMailItem(index)
+                return count
+            end
+        end },
+        SetInboxItem = { key = "mail", count = function(index, attachment)
+            if type(GetInboxItem) == "function" then
+                local _, _, _, count = GetInboxItem(index, attachment)
+                return count
+            end
+        end },
+        SetQuestItem = { key = "questRewards" },
+        SetQuestLogItem = { key = "questRewards" },
+        SetTradePlayerItem = { key = "inventoryBank" },
+        SetTradeTargetItem = { key = "inventoryBank" },
+        SetLootItem = { key = "inventoryBank" },
+        SetRecipeReagentItem = { key = "professions" },
+    }
+    for method, config in pairs(contexts) do
+        if type(GameTooltip[method]) == "function" then
+            hooksecurefunc(GameTooltip, method, function(tt, ...)
+                if not VP:IsContextEnabled(config.key) then return end
+                local count = config.count and config.count(...) or 1
+                VP:SetPrice(tt, false, method, count)
+            end)
+        end
     end
 end
 
@@ -600,7 +647,7 @@ end
 -- Classic clients. Forever's Map & Quest Log is handled by the modern tooltip
 -- post-call above.
 local function OnEnterQuestReward(self)
-    if Compat.IsForever() then return end
+    if Compat.IsForever() or not VP:IsContextEnabled("questRewards") then return end
 
     local link = self.itemLink or (self.GetID and GetQuestItemLink(self.type, self:GetID()))
     if link then
@@ -619,6 +666,7 @@ local function SafeHookScript(frame, scriptName, callback)
     return true
 end
 
+if type(QuestInfo_Display) == "function" then
 hooksecurefunc("QuestInfo_Display", function()
     for i = 1, MAX_NUM_ITEMS do
         local button = QuestInfoRewardsFrame and QuestInfoRewardsFrame["QuestInfoItem" .. i]
@@ -629,6 +677,7 @@ hooksecurefunc("QuestInfo_Display", function()
         end
     end
 end)
+end
 
 -- Tooltip fallback using GetOwner() (DF-safe)
 if GameTooltip.HasScript and GameTooltip:HasScript("OnTooltipSetItem") then
@@ -642,7 +691,7 @@ if GameTooltip.HasScript and GameTooltip:HasScript("OnTooltipSetItem") then
         local parent = owner:GetParent()
         local parentName = parent and parent:GetName()
 
-        if parentName and parentName:match("^QuestInfoRewardsFrame") then
+        if not Compat.IsForever() and VP:IsContextEnabled("questRewards") and parentName and parentName:match("^QuestInfoRewardsFrame") then
             VP:SetPrice(tt, false, "QuestRewardFallback", owner.count or 1, itemLink)
         end
     end)
