@@ -173,6 +173,31 @@ if Compat.IsForever()
             return
         end
 
+        -- Forever quest rewards are built with GetQuestLogItem. The native
+        -- SellPrice row already has the correct value; changing its label must
+        -- not depend on a cached item price or a stack-price calculation.
+        -- Adjust the processor's line data as well as any rendered FontString
+        -- so either rendering order can pick up the new label.
+        if contextKey == "questRewards" then
+            if type(lineData.leftText) == "string"
+                and lineData.leftText:find(SELL_PRICE_TEXT, 1, true) == 1 then
+                lineData.leftText = "Vendor"
+            end
+            local tooltipName = tt.GetName and tt:GetName()
+            if tooltipName and tt.NumLines then
+                for i = 1, tt:NumLines() do
+                    local left = _G[tooltipName .. "TextLeft" .. i]
+                    local label = left and left:GetText()
+                    if type(label) == "string"
+                        and label:find(SELL_PRICE_TEXT, 1, true) == 1 then
+                        left:SetText(NORMAL_FONT_COLOR:WrapTextInColorCode("Vendor"))
+                        break
+                    end
+                end
+            end
+            return
+        end
+
         local info = tt.GetProcessingTooltipInfo and tt:GetProcessingTooltipInfo()
         local tooltipData = info and info.tooltipData
         local item = tooltipData and (tooltipData.hyperlink or tooltipData.id)
@@ -314,70 +339,6 @@ end
 -- Some Forever quest rewards use the item tooltip pipeline without a
 -- SellPrice line post-call. Normalize only the already-rendered native label;
 -- never synthesize prices or interfere with Classic's tooltip hooks.
-if Compat.IsForever() and TooltipDataProcessor
-    and type(TooltipDataProcessor.AddTooltipPostCall) == "function"
-    and Enum and Enum.TooltipDataType and Enum.TooltipDataType.Item then
-    TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Item, function(tt)
-        if not VP:IsContextEnabled("questRewards") then return end
-        if not tt or not tt.GetName or not tt.NumLines then return end
-        local owner = tt.GetOwner and tt:GetOwner()
-        local ownerName = owner and owner.GetName and owner:GetName() or ""
-        local parent = owner and owner.GetParent and owner:GetParent()
-        local parentName = parent and parent.GetName and parent:GetName() or ""
-        local info = tt.GetProcessingTooltipInfo and tt:GetProcessingTooltipInfo()
-        local getterName = info and info.getterName or ""
-        local isQuest = getterName:find("Quest", 1, true)
-            or ownerName:find("Quest", 1, true)
-            or parentName:find("Quest", 1, true)
-        if not isQuest then return end
-        local tooltipName = tt:GetName()
-        if not tooltipName then return end
-        for i = 1, tt:NumLines() do
-            local left = _G[tooltipName .. "TextLeft" .. i]
-            local label = left and left:GetText()
-            if type(label) == "string" and label:find(SELL_PRICE_TEXT, 1, true) == 1 then
-                left:SetText(NORMAL_FONT_COLOR:WrapTextInColorCode("Vendor"))
-            end
-        end
-    end)
-end
-
--- Forever quest rewards can render their Sell Price after the modern item
--- post-call, and their tooltip owner may not contain "Quest" in its name.
--- Resolve the actual quest-reward ancestry on hover and change only the label.
--- This is a display-only fallback; never change Blizzard's money amount.
-if Compat.IsForever() and GameTooltip and GameTooltip.HookScript then
-    GameTooltip:HookScript("OnUpdate", function(tt)
-        if not VP:IsContextEnabled("questRewards") then return end
-        local owner = tt.GetOwner and tt:GetOwner()
-        if not owner then return end
-        local inQuestRewards = false
-        local node = owner
-        for _ = 1, 12 do
-            if not node then break end
-            local name = node.GetName and node:GetName() or ""
-            if name:find("QuestInfoRewards", 1, true)
-                or name:find("QuestMapFrame", 1, true)
-                or name:find("QuestLogPopupDetailFrame", 1, true) then
-                inQuestRewards = true
-                break
-            end
-            node = node.GetParent and node:GetParent()
-        end
-        if not inQuestRewards then return end
-        local tooltipName = tt.GetName and tt:GetName()
-        if not tooltipName then return end
-        for i = 1, tt:NumLines() do
-            local left = _G[tooltipName .. "TextLeft" .. i]
-            local label = left and left:GetText()
-            if type(label) == "string" and label:find(SELL_PRICE_TEXT, 1, true) == 1 then
-                left:SetText(NORMAL_FONT_COLOR:WrapTextInColorCode("Vendor"))
-                return
-            end
-        end
-    end)
-end
-
 -- Auctionator appends its Vendor/Auction rows in the completed item-tooltip
 -- callback. Flush our pending stack row on the tooltip's next update so VPP is
 -- supplemental and appears after Auctionator rather than interrupting it.
