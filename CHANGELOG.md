@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.2.4 (release candidate)
+## 1.2.4
 
 ### Classic Era, Hardcore, Season of Discovery, and TBC Anniversary
 - Expanded vendor pricing to supported item tooltips across inventory and bank, mail, merchants and buyback, professions, quest rewards, and the Auction House.
@@ -16,7 +16,7 @@
 
 ### Architecture
 - Continued shared Compat.lua, Options.lua, and VendorPricePlus.lua architecture across supported clients.
-- Classic Era and TBC Anniversary regression testing pending for this release candidate.
+- WoW Forever, Classic Era, and TBC Anniversary were tested during 1.2.4 development; the known TBC quest-log reward stack limitation remains.
 
 ## 1.2.3
 
