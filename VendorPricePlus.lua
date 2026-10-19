@@ -705,10 +705,9 @@ if Compat.IsForever() and TooltipDataProcessor and TooltipDataProcessor.AddToolt
             return
         end
 
-        -- Forever's Map & Quest Log exposes both guaranteed rewards and
-        -- selectable choices through GetQuestLogItem. The tooltip owner tells us
-        -- which kind of quest item button it is. Handle both here because the
-        -- older QuestInfo APIs are not populated while viewing MapQuestInfo.
+        -- Forever's Map & Quest Log uses GetQuestLogItem for both reward
+        -- choices and guaranteed items. Its Sell Price row may be supplied by
+        -- Blizzard or by this post-call, depending on the quest surface.
         local info = tt.GetProcessingTooltipInfo and tt:GetProcessingTooltipInfo()
         local getterName = info and info.getterName
         local isQuestReward = owner.objectType == "item"
@@ -718,33 +717,35 @@ if Compat.IsForever() and TooltipDataProcessor and TooltipDataProcessor.AddToolt
         if isQuestReward then
             if not VP:IsContextEnabled("questRewards") then return end
 
-            -- Some Forever quest surfaces (notably the NPC quest offer/accept
-            -- window) already render Blizzard's native Sell Price. The Map &
-            -- Quest Log omits it. Only supply the missing row when Blizzard did
-            -- not already render one, avoiding a duplicate below the F6 footer.
+            -- Normalize an existing native row instead of returning with the
+            -- old Sell Price label. Keep its displayed amount untouched.
             local tooltipName = tt.GetName and tt:GetName()
             if tooltipName and tt.NumLines then
                 for i = 1, tt:NumLines() do
                     local left = _G[tooltipName .. "TextLeft" .. i]
                     local text = left and left:GetText()
-                    if text and text:find(SELL_PRICE_TEXT, 1, true) == 1 then
+                    if type(text) == "string"
+                        and text:find(SELL_PRICE_TEXT, 1, true) == 1 then
+                        left:SetText(NORMAL_FONT_COLOR:WrapTextInColorCode("Vendor"))
                         return
                     end
                 end
             end
 
+            -- The Map & Quest Log sometimes omits Blizzard's price entirely.
+            -- Add a single vendor row there, using the reward's known count.
             local count = tonumber(owner.count) or 1
             local sellPrice = select(11, Compat.GetItemInfo(item))
-            if sellPrice and sellPrice > 0 then
+            if Compat.CanAccessNumber(sellPrice) and sellPrice > 0 then
                 tt:AddDoubleLine(
-                    NORMAL_FONT_COLOR:WrapTextInColorCode(SELL_PRICE_TEXT),
-                    FormatMoneyWithIcons(sellPrice * count),
+                    NORMAL_FONT_COLOR:WrapTextInColorCode("Vendor"),
+                    FormatMoneyWithIcons(sellPrice),
                     1, 1, 1, 1, 1, 1
                 )
                 if count >= 2 then
                     tt:AddDoubleLine(
-                        "Unit Price:",
-                        FormatMoneyWithIcons(sellPrice),
+                        NORMAL_FONT_COLOR:WrapTextInColorCode(format("Vendor |cff88ccffx%d|r", count)),
+                        FormatMoneyWithIcons(sellPrice * count),
                         1, 1, 1, 1, 1, 1
                     )
                 end
