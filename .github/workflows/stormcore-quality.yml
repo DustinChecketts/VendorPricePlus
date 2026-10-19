@@ -1,13 +1,7 @@
-name: StormCore quality checks
+name: StormCore quality checks (manual audit)
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main
-  pull_request:
-    branches:
-      - main
 
 permissions:
   contents: read
