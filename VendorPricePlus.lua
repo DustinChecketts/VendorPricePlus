@@ -346,7 +346,31 @@ local function HideLegacySellPrice(tt)
     end
 end
 
+-- A disabled context must be a complete no-op: leave Blizzard's Sell
+-- Price line and all other tooltip content intact. Centralizing this check
+-- also covers fallback hooks that call SetPrice directly.
+local LEGACY_CONTEXTS = {
+    SetBagItem = "inventoryBank",
+    SetInventoryItem = "inventoryBank",
+    SetTradePlayerItem = "inventoryBank",
+    SetTradeTargetItem = "inventoryBank",
+    SetLootItem = "inventoryBank",
+    SetMerchantItem = "merchant",
+    SetBuybackItem = "merchant",
+    SetSendMailItem = "mail",
+    SetInboxItem = "mail",
+    SetTradeSkillItem = "professions",
+    SetCraftItem = "professions",
+    SetRecipeReagentItem = "professions",
+    QuestReward = "questRewards",
+    QuestRewardFallback = "questRewards",
+    SetQuestItem = "questRewards",
+    SetQuestLogItem = "questRewards",
+}
+
 function VP:SetPrice(tt, _, source, count, item)
+    local context = LEGACY_CONTEXTS[source]
+    if context and not VP:IsContextEnabled(context) then return end
     -- Resolve the item before the count. Action-bar callers can provide an item
     -- ID even when GetActionCount() itself is protected.
     if not item and tt and type(tt.GetItem) == "function" then
