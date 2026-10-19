@@ -66,7 +66,7 @@ local function CreateOptionsPanel(self)
 
     local subtitle = self:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
     subtitle:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -8)
-    subtitle:SetText("Choose where VendorPricePlus adds clearer vendor pricing.")
+    subtitle:SetText("Choose where you\'d like to see vendor prices. All options are enabled by default.")
 
     local heading = self:CreateFontString(nil, "ARTWORK", "GameFontNormal")
     heading:SetPoint("TOPLEFT", subtitle, "BOTTOMLEFT", 0, -22)
@@ -110,7 +110,7 @@ local function CreateOptionsPanel(self)
 
     local defaultsButton = CreateFrame("Button", nil, self, "UIPanelButtonTemplate")
     defaultsButton:SetSize(110, 24)
-    defaultsButton:SetPoint("TOPLEFT", lastCheck, "BOTTOMLEFT", 4, -12)
+    defaultsButton:SetPoint("TOPRIGHT", self, "TOPRIGHT", -18, -16)
     defaultsButton:SetText("Defaults")
     defaultsButton:SetScript("OnClick", function()
         for key, defaultValue in pairs(CONTEXT_DEFAULTS) do
@@ -121,11 +121,7 @@ local function CreateOptionsPanel(self)
         end
     end)
 
-    local note = self:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
-    note:SetPoint("TOPLEFT", defaultsButton, "BOTTOMLEFT", 0, -12)
-    note:SetWidth(500)
-    note:SetJustifyH("LEFT")
-    note:SetText("Choose where you'd like to see vendor prices. All options are enabled by default.")
+
 end
 
 panel:SetScript("OnShow", function(self)
