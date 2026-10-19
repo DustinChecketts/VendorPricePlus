@@ -1,0 +1,16 @@
+name: StormCore quality checks
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  quality:
+    uses: DustinChecketts/StormCore/.github/workflows/validate-addon.yml@main
+    with:
+      strict: false
