@@ -1,0 +1,14 @@
+name: Validate addon
+
+on:
+  push:
+    branches:
+      - main
+      - "feature/**"
+      - "checkpoint/**"
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  validate:
+    uses: DustinChecketts/stormcore/.github/workflows/validate-addon.yml@main
