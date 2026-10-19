@@ -93,7 +93,7 @@ jobs:
         shell: bash
         run: |
           find . -name '*.lua' -type f -not -path './.git/*' -print0 |
-            xargs -0 -r luacheck --codes --no-color --no-max-line-length
+            xargs -0 -r luacheck --config .github/luacheckrc --codes --no-color --no-max-line-length
 
       - name: Install StyLua
         run: cargo install stylua --version 2.1.0 --locked
@@ -103,4 +103,4 @@ jobs:
         shell: bash
         run: |
           find . -name '*.lua' -type f -not -path './.git/*' -print0 |
-            xargs -0 -r stylua --check --syntax Lua51
+            xargs -0 -r stylua --check --config-path stylua.toml
