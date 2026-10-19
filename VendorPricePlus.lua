@@ -22,23 +22,8 @@ local overridePrice
 -- First keyring inventory slot
 local FIRST_KEYRING_INVSLOT = 107
 
--- Override SetTooltipMoney function to modify tooltip display
-local _SetTooltipMoney = SetTooltipMoney
-function SetTooltipMoney(frame, money, ...)
-    if overridePrice then
-        _SetTooltipMoney(frame, overridePrice, ...)
-    else
-        _SetTooltipMoney(frame, money, ...)
-        overridePrice = nil
-    end
-end
-
--- Clear overridePrice on tooltip hide
-if GameTooltip and GameTooltip.HasScript and GameTooltip:HasScript("OnHide") then
-    GameTooltip:HookScript("OnHide", function()
-        overridePrice = nil
-    end)
-end
+-- Do not replace Blizzard's global SetTooltipMoney. Native tooltip money
+-- rendering must remain untouched when a context is disabled.
 
 -- Function to format money values with precise alignment & 12x12 icons
 local function FormatMoneyWithIcons(amount)
@@ -350,6 +335,8 @@ end
 -- Price line and all other tooltip content intact. Centralizing this check
 -- also covers fallback hooks that call SetPrice directly.
 local LEGACY_CONTEXTS = {
+    SetAuctionItem = "auctionHouse",
+    Integration = "auctionHouse",
     SetBagItem = "inventoryBank",
     SetInventoryItem = "inventoryBank",
     SetTradePlayerItem = "inventoryBank",
@@ -464,6 +451,7 @@ local SetItem = {
         end
     end,
     SetAuctionItem = function(tt, auctionType, index)
+        if not VP:IsContextEnabled("auctionHouse") then return end
         local _, _, count = GetAuctionItemInfo(auctionType, index)
         VP:SetPrice(tt, false, "SetAuctionItem", count)
     end,
