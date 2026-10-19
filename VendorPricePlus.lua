@@ -513,22 +513,8 @@ if not Compat.IsForever() then
             end
             return 1
         end },
-        SetQuestItem = { key = "questRewards", count = function(rewardType, index)
-            if type(GetQuestItemInfo) == "function" then
-                local _, _, count = GetQuestItemInfo(rewardType, index)
-                return count
-            end
-            return 1
-        end },
-        SetQuestLogItem = { key = "questRewards", count = function(rewardType, index)
-            -- Quest log reward buttons don't always expose .count on their
-            -- owner. Read the reward quantity from the quest-log API instead.
-            if type(GetQuestLogItemInfo) == "function" then
-                local _, _, count = GetQuestLogItemInfo(rewardType, index)
-                return count
-            end
-            return 1
-        end },
+        SetQuestItem = { key = "questRewards" },
+        SetQuestLogItem = { key = "questRewards" },
         SetTradePlayerItem = { key = "inventoryBank" },
         SetTradeTargetItem = { key = "inventoryBank" },
         SetLootItem = { key = "inventoryBank" },
@@ -772,66 +758,6 @@ hooksecurefunc("QuestInfo_Display", function()
     end
 end)
 end
-
--- Classic/TBC quest-log reward buttons can display a quantity without
--- passing it to the tooltip setter. Add only the missing stack row after
--- Blizzard and the normal VPP tooltip hooks have run. This is a presentation
--- supplement; the common unit-pricing path remains unchanged.
-local function OnEnterQuestLogStack(self)
-    if Compat.IsForever() or not VP:IsContextEnabled("questRewards") then return end
-    local tt = GameTooltip
-    if not tt or not tt.GetOwner or tt:GetOwner() ~= self then return end
-
-    local rewardIndex = self.GetID and self:GetID()
-    local count = tonumber(self.count)
-    if (not count or count < 2) and type(GetQuestLogItemInfo) == "function"
-        and type(rewardIndex) == "number" and rewardIndex > 0 then
-        local _, _, apiCount = GetQuestLogItemInfo(self.type or "reward", rewardIndex)
-        count = tonumber(apiCount)
-    end
-    if (not count or count < 2) and self.Count and self.Count.GetText then
-        count = tonumber(self.Count:GetText())
-    end
-    if not count or count < 2 then return end
-
-    local item = select(2, tt:GetItem())
-    if not item or not Compat.CanAccessValue(item) then return end
-    local unitPrice = select(11, Compat.GetItemInfo(item))
-    if not Compat.CanAccessNumber(unitPrice) or unitPrice <= 0 then return end
-
-    local name = tt:GetName()
-    if name then
-        for line = 1, tt:NumLines() do
-            local left = _G[name .. "TextLeft" .. line]
-            local label = left and left:GetText()
-            if type(label) == "string" and label:find("Vendor")
-                and label:find("x" .. count, 1, true) then
-                return
-            end
-        end
-    end
-    tt:AddDoubleLine(
-        NORMAL_FONT_COLOR:WrapTextInColorCode(format("Vendor |cff88ccffx%d|r", count)),
-        FormatMoneyWithIcons(unitPrice * count), 1, 1, 1, 1, 1, 1
-    )
-    tt:Show()
-end
-
-local function HookQuestLogStackButtons()
-    if Compat.IsForever() then return end
-    for i = 1, (MAX_NUM_ITEMS or 10) do
-        local button = _G["QuestLogItem" .. i]
-        if button and not button.__VendorPricePlusStackHooked
-            and button.HookScript and button:HasScript("OnEnter") then
-            button:HookScript("OnEnter", OnEnterQuestLogStack)
-            button.__VendorPricePlusStackHooked = true
-        end
-    end
-end
-if type(QuestLog_Update) == "function" then
-    hooksecurefunc("QuestLog_Update", HookQuestLogStackButtons)
-end
-HookQuestLogStackButtons()
 
 -- Tooltip fallback using GetOwner() (DF-safe)
 if GameTooltip.HasScript and GameTooltip:HasScript("OnTooltipSetItem") then
