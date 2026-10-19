@@ -499,6 +499,30 @@ if not Compat.IsForever() then
         SetTradeTargetItem = { key = "inventoryBank" },
         SetLootItem = { key = "inventoryBank" },
         SetRecipeReagentItem = { key = "professions" },
+        -- Era's original TradeSkillFrame and CraftFrame use these legacy
+        -- setters for both the crafted output and individual reagents.
+        SetTradeSkillItem = { key = "professions", count = function(skillIndex, reagentIndex)
+            if reagentIndex and type(GetTradeSkillReagentInfo) == "function" then
+                local _, _, required = GetTradeSkillReagentInfo(skillIndex, reagentIndex)
+                return required
+            end
+            if type(GetTradeSkillNumMade) == "function" then
+                local minimum = GetTradeSkillNumMade(skillIndex)
+                return minimum
+            end
+            return 1
+        end },
+        SetCraftItem = { key = "professions", count = function(skillIndex, reagentIndex)
+            if reagentIndex and type(GetCraftReagentInfo) == "function" then
+                local _, _, required = GetCraftReagentInfo(skillIndex, reagentIndex)
+                return required
+            end
+            if type(GetCraftNumMade) == "function" then
+                local minimum = GetCraftNumMade(skillIndex)
+                return minimum
+            end
+            return 1
+        end },
     }
     for method, config in pairs(contexts) do
         if type(GameTooltip[method]) == "function" then
