@@ -8,7 +8,7 @@ VendorPricePlus = VendorPricePlus or {}
 local VP = VendorPricePlus
 local Compat = VP.Compat
 
--- Every supported Forever tooltip surface is enabled on first install. These
+-- Every supported tooltip context is enabled on first install. These
 -- switches are primarily here so players can opt out of a specific enhancement.
 local CONTEXT_DEFAULTS = {
     inventoryBank = true,
@@ -86,7 +86,6 @@ local function CreateOptionsPanel(self)
     -- predictable if labels or rows are changed later.
     local firstY = -118
     local rowSpacing = 46
-    local lastCheck
     local checks = {}
 
     for index, choice in ipairs(choices) do
@@ -103,7 +102,6 @@ local function CreateOptionsPanel(self)
         end)
 
         checks[#checks + 1] = { button = check, key = choice.key }
-        lastCheck = check
     end
 
     self.vppChecks = checks
@@ -120,8 +118,6 @@ local function CreateOptionsPanel(self)
             row.button:SetChecked(VP:IsContextEnabled(row.key))
         end
     end)
-
-
 end
 
 panel:SetScript("OnShow", function(self)
