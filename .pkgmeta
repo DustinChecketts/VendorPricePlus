@@ -8,3 +8,4 @@ ignore:
   - .github
   - .gitignore
   - ARCHITECTURE.md
+  - AGENTS.md
