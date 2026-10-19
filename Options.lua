@@ -16,6 +16,7 @@ local CONTEXT_DEFAULTS = {
     merchant = true,
     professions = true,
     questRewards = true,
+    auctionHouse = true,
 }
 
 function VP:EnsureSettingsDefaults()
@@ -77,13 +78,14 @@ local function CreateOptionsPanel(self)
         { key = "merchant", label = "Merchant & Buyback" },
         { key = "professions", label = "Professions" },
         { key = "questRewards", label = "Quest Rewards" },
+        { key = "auctionHouse", label = "Auction House" },
     }
 
     -- Anchor every checkbox to the panel, rather than to the previous checkbox.
     -- This keeps the controls in a perfectly straight column and makes spacing
     -- predictable if labels or rows are changed later.
     local firstY = -118
-    local rowSpacing = 52
+    local rowSpacing = 46
     local lastCheck
     local checks = {}
 
