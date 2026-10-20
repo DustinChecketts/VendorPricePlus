@@ -1,12 +1,13 @@
-# StormCore validation pilot pinned to a reviewed immutable StormCore commit.
-# The shared workflow checks out its scripts from that same commit.
+# Shared addon quality checks, pinned to a reviewed StormCore commit.
+# Advisory lint and formatting findings do not block existing development.
 name: StormCore quality checks
 
 on:
   workflow_dispatch:
   push:
     branches:
-      - feature/stormcore-shared-validation
+      - main
+  pull_request:
 
 permissions:
   contents: read
