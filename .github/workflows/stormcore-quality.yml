@@ -1,5 +1,6 @@
 # StormCore validation pilot. Uses the matching StormCore development branch.
-# After approval, pin to a reviewed immutable StormCore commit.
+# Validation scripts are now resolved from the reusable workflow's exact commit.
+# Pin the caller to a reviewed immutable StormCore commit after promotion.
 name: StormCore quality checks
 
 on:
