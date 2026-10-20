@@ -1,6 +1,5 @@
-# StormCore validation pilot. Uses the matching StormCore development branch.
-# Validation scripts are now resolved from the reusable workflow's exact commit.
-# Pin the caller to a reviewed immutable StormCore commit after promotion.
+# StormCore validation pilot pinned to a reviewed immutable StormCore commit.
+# The shared workflow checks out its scripts from that same commit.
 name: StormCore quality checks
 
 on:
@@ -14,6 +13,6 @@ permissions:
 
 jobs:
   quality:
-    uses: DustinChecketts/stormcore/.github/workflows/validate-addon.yml@feature/addon-local-quality-config
+    uses: DustinChecketts/stormcore/.github/workflows/validate-addon.yml@80696280b69b2c4d71c56b40f0950dc60fb4d27b
     with:
       strict: false
