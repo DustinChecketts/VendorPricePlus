@@ -15,29 +15,12 @@ local function IsAuctionatorLoaded()
     return Compat.IsAddOnLoaded("Auctionator")
 end
 
--- Auctionator owns pricing in its Auction House panels. Its Selling bag
--- buttons can look like ordinary bag tooltips to the modern tooltip API, so
--- identify the owning UI rather than relying only on the tooltip getter.
-local function IsAuctionatorAuctionHouseTooltip(tt, contextKey)
-    if not IsAuctionatorLoaded() or not AuctionFrame or not AuctionFrame:IsShown() then
-        return false
-    end
-
-    if contextKey == "auctionHouse" then return true end
-
-    local owner = tt.GetOwner and tt:GetOwner()
-    local frame = owner
-    for _ = 1, 20 do
-        if not frame then break end
-        local name = frame.GetName and frame:GetName()
-        if type(name) == "string" and (name:find("Auctionator", 1, true)
-            or name:find("AuctionFrame", 1, true)) then
-            return true
-        end
-        if frame == AuctionFrame then return true end
-        frame = frame.GetParent and frame:GetParent()
-    end
-    return false
+-- While Auctionator's Auction House is open, let it own tooltip prices.
+-- The Selling panel reuses bag-item tooltip APIs, and recipe tooltips may
+-- expose a result item's price instead of the recipe's own vendor value.
+-- Frame ancestry/getter names cannot reliably distinguish those tooltips.
+local function IsAuctionatorAuctionHouseOpen()
+    return IsAuctionatorLoaded() and AuctionFrame and AuctionFrame:IsShown()
 end
 
 -- Constants
@@ -126,7 +109,7 @@ if Compat.IsForever()
         -- Leave Auctionator's AH tooltip rows untouched; otherwise both addons
         -- can relabel the native Sell Price and produce duplicate Vendor rows.
         -- Bag tooltips outside the AH retain their existing VPP behavior.
-        if IsAuctionatorAuctionHouseTooltip(tt, contextKey) then return end
+        if IsAuctionatorAuctionHouseOpen() then return end
         if contextKey and not VP:IsContextEnabled(contextKey) then
             return
         end
@@ -299,6 +282,10 @@ end
 -- supplemental and appears after Auctionator rather than interrupting it.
 if GameTooltip and GameTooltip.HookScript then
     GameTooltip:HookScript("OnUpdate", function(tt)
+        if IsAuctionatorAuctionHouseOpen() then
+            tt.__VendorPricePlusPendingAuctionatorStack = nil
+            return
+        end
         local pending = tt.__VendorPricePlusPendingAuctionatorStack
         if not pending then return end
 
@@ -361,6 +348,7 @@ local LEGACY_CONTEXTS = {
 
 function VP:SetPrice(tt, _, source, count, item)
     local context = LEGACY_CONTEXTS[source]
+    if IsAuctionatorAuctionHouseOpen() then return end
     if context and not VP:IsContextEnabled(context) then return end
     -- Resolve the item before the count. Action-bar callers can provide an item
     -- ID even when GetActionCount() itself is protected.
