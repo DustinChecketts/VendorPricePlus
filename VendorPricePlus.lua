@@ -658,7 +658,7 @@ if Compat.IsForever() and TooltipDataProcessor and TooltipDataProcessor.AddToolt
     and Enum and Enum.TooltipDataType and Enum.TooltipDataType.Item then
     TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Item, function(tt, data)
         if VP.Debug then
-            VP.Debug.Capture(tt, "Item post-call", "dataID=" .. tostring(data and data.id))
+            VP.Debug.Capture(tt, "Item post-call", "dataID=" .. tostring(data and Compat.CanAccessValue(data.id) and data.id or "<protected>"))
             if VP.Debug.Bypass() then
                 VP.Debug.Log("Item post-call", "BYPASS")
                 return
