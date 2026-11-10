@@ -15,6 +15,31 @@ local function IsAuctionatorLoaded()
     return Compat.IsAddOnLoaded("Auctionator")
 end
 
+-- Auctionator owns pricing in its Auction House panels. Its Selling bag
+-- buttons can look like ordinary bag tooltips to the modern tooltip API, so
+-- identify the owning UI rather than relying only on the tooltip getter.
+local function IsAuctionatorAuctionHouseTooltip(tt, contextKey)
+    if not IsAuctionatorLoaded() or not AuctionFrame or not AuctionFrame:IsShown() then
+        return false
+    end
+
+    if contextKey == "auctionHouse" then return true end
+
+    local owner = tt.GetOwner and tt:GetOwner()
+    local frame = owner
+    for _ = 1, 20 do
+        if not frame then break end
+        local name = frame.GetName and frame:GetName()
+        if type(name) == "string" and (name:find("Auctionator", 1, true)
+            or name:find("AuctionFrame", 1, true)) then
+            return true
+        end
+        if frame == AuctionFrame then return true end
+        frame = frame.GetParent and frame:GetParent()
+    end
+    return false
+end
+
 -- Constants
 local SELL_PRICE_TEXT = format("%s:", SELL_PRICE)
 
@@ -98,6 +123,10 @@ if Compat.IsForever()
         if not tt or not lineData then return end
 
         local contextKey = GetForeverContextKey(tt)
+        -- Leave Auctionator's AH tooltip rows untouched; otherwise both addons
+        -- can relabel the native Sell Price and produce duplicate Vendor rows.
+        -- Bag tooltips outside the AH retain their existing VPP behavior.
+        if IsAuctionatorAuctionHouseTooltip(tt, contextKey) then return end
         if contextKey and not VP:IsContextEnabled(contextKey) then
             return
         end
