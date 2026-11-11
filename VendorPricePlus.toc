@@ -6,11 +6,10 @@
 ## Category: Tooltip
 ## IconTexture: Interface\\Icons\\INV_Misc_Coin_01
 ## DefaultState: enabled
-## SavedVariables: VendorPricePlusDB, VendorPricePlusDebugLog
+## SavedVariables: VendorPricePlusDB
 ## X-Curse-Project-ID: 904486
 
 Compat.lua
 Options.lua
-Diagnostics.lua
 VendorPricePlus.lua
 Integrations.lua
