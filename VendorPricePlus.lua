@@ -20,7 +20,10 @@ end
 -- expose a result item's price instead of the recipe's own vendor value.
 -- Frame ancestry/getter names cannot reliably distinguish those tooltips.
 local function IsAuctionatorAuctionHouseOpen()
-    return IsAuctionatorLoaded() and AuctionFrame and AuctionFrame:IsShown()
+    if not IsAuctionatorLoaded() then return false end
+    -- Forever uses AuctionHouseFrame; older Classic clients use AuctionFrame.
+    return (AuctionHouseFrame and AuctionHouseFrame:IsShown())
+        or (AuctionFrame and AuctionFrame:IsShown())
 end
 
 -- Constants
@@ -109,18 +112,7 @@ if Compat.IsForever()
         -- Leave Auctionator's AH tooltip rows untouched; otherwise both addons
         -- can relabel the native Sell Price and produce duplicate Vendor rows.
         -- Bag tooltips outside the AH retain their existing VPP behavior.
-        if VP.Debug then
-            VP.Debug.Capture(tt, "SellPrice callback", "context=" .. tostring(contextKey)
-                .. " nativePrice=" .. tostring(Compat.CanAccessValue(lineData.price) and lineData.price or "<protected>"))
-            if VP.Debug.Bypass() then
-                VP.Debug.Log("SellPrice callback", "BYPASS")
-                return
-            end
-        end
-        if IsAuctionatorAuctionHouseOpen() then
-            if VP.Debug then VP.Debug.Log("SellPrice callback", "AH guard returned") end
-            return
-        end
+        if IsAuctionatorAuctionHouseOpen() then return end
         if contextKey and not VP:IsContextEnabled(contextKey) then
             return
         end
@@ -162,11 +154,6 @@ if Compat.IsForever()
         local unitPrice = select(11, Compat.GetItemInfo(item))
         local stackPrice = tonumber(lineData.price)
 
-        if VP.Debug then
-            VP.Debug.Log("SellPrice values", "item=" .. tostring(Compat.CanAccessValue(item) and item or "<protected>")
-                .. " unit=" .. tostring(Compat.CanAccessValue(unitPrice) and unitPrice or "<protected>")
-                .. " native=" .. tostring(stackPrice))
-        end
         if not unitPrice or unitPrice <= 0 or not stackPrice or stackPrice <= 0 then
             return
         end
@@ -265,7 +252,6 @@ if Compat.IsForever()
                 and Compat.CanAccessNumber(stackPrice)
                 and stackPrice >= unitPrice and stackPrice % unitPrice == 0 then
                 count = stackPrice / unitPrice
-                if VP.Debug then VP.Debug.Log("inferred count", tostring(count)) end
             end
 
             for i = 1, tt:NumLines() do
@@ -304,11 +290,6 @@ if GameTooltip and GameTooltip.HookScript then
             return
         end
         local pending = tt.__VendorPricePlusPendingAuctionatorStack
-        if VP.Debug and pending then VP.Debug.Log("pending stack", VP.Debug.Bypass() and "BYPASS" or "flush") end
-        if VP.Debug and VP.Debug.Bypass() then
-            tt.__VendorPricePlusPendingAuctionatorStack = nil
-            return
-        end
         if not pending then return end
 
         tt.__VendorPricePlusPendingAuctionatorStack = nil
@@ -370,18 +351,7 @@ local LEGACY_CONTEXTS = {
 
 function VP:SetPrice(tt, _, source, count, item)
     local context = LEGACY_CONTEXTS[source]
-    if VP.Debug then
-        VP.Debug.Capture(tt, "SetPrice", "source=" .. tostring(source)
-            .. " count=" .. tostring(Compat.CanAccessValue(count) and count or "<protected>"))
-        if VP.Debug.Bypass() then
-            VP.Debug.Log("SetPrice", "BYPASS")
-            return
-        end
-    end
-    if IsAuctionatorAuctionHouseOpen() then
-        if VP.Debug then VP.Debug.Log("SetPrice", "AH guard returned") end
-        return
-    end
+    if IsAuctionatorAuctionHouseOpen() then return end
     if context and not VP:IsContextEnabled(context) then return end
     -- Resolve the item before the count. Action-bar callers can provide an item
     -- ID even when GetActionCount() itself is protected.
@@ -657,13 +627,7 @@ end
 if Compat.IsForever() and TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall
     and Enum and Enum.TooltipDataType and Enum.TooltipDataType.Item then
     TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Item, function(tt, data)
-        if VP.Debug then
-            VP.Debug.Capture(tt, "Item post-call", "dataID=" .. tostring(data and Compat.CanAccessValue(data.id) and data.id or "<protected>"))
-            if VP.Debug.Bypass() then
-                VP.Debug.Log("Item post-call", "BYPASS")
-                return
-            end
-        end
+        if IsAuctionatorAuctionHouseOpen() then return end
         local owner = tt.GetOwner and tt:GetOwner()
         if not owner then return end
 
@@ -742,7 +706,6 @@ end
 -- ItemRef tooltip support
 if ItemRefTooltip and ItemRefTooltip.HasScript and ItemRefTooltip:HasScript("OnTooltipSetItem") then
     ItemRefTooltip:HookScript("OnTooltipSetItem", function(tt)
-        if VP.Debug and VP.Debug.Bypass() then return end
         local item = select(2, tt:GetItem())
         if item then
             local sellPrice = select(11, Compat.GetItemInfo(item))
