@@ -11,5 +11,6 @@
 
 Compat.lua
 Options.lua
+PricePresentation.lua
 VendorPricePlus.lua
 Integrations.lua
