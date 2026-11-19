@@ -166,6 +166,14 @@ if Compat.IsForever()
         local owner = tt.GetOwner and tt:GetOwner()
         local count = owner and tonumber(owner.count) or 1
 
+        -- When another pricing addon is active, defer presentation until the
+        -- tooltip is complete. Only add a missing Vendor row or verified stack.
+        if IsAuctionatorLoaded() then
+            local verifiedCount = contextKey == "inventoryBank" and count >= 2 and count or nil
+            VP:QueuePriceReconciliation(tt, contextKey, verifiedCount, stackPrice)
+            return
+        end
+
         if contextKey == "inventoryBank" then
             if count < 1 then
                 count = 1
@@ -286,6 +294,11 @@ end
 if GameTooltip and GameTooltip.HookScript then
     GameTooltip:HookScript("OnUpdate", function(tt)
         if IsAuctionatorAuctionHouseOpen() then
+            tt.__VendorPricePlusReconcile = nil
+        else
+            VP:ReconcilePriceRows(tt)
+        end
+        if IsAuctionatorAuctionHouseOpen() then
             tt.__VendorPricePlusPendingAuctionatorStack = nil
             return
         end
@@ -304,6 +317,7 @@ if GameTooltip and GameTooltip.HookScript then
     if GameTooltip.HasScript and GameTooltip:HasScript("OnHide") then
         GameTooltip:HookScript("OnHide", function(tt)
             tt.__VendorPricePlusPendingAuctionatorStack = nil
+            tt.__VendorPricePlusReconcile = nil
         end)
     end
 end
